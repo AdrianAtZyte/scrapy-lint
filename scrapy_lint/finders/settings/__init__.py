@@ -94,7 +94,7 @@ from scrapy_lint.versions import (
 )
 
 from .types import TYPE_CHECKERS
-from .values import VALUE_CHECKERS
+from .values import VALUE_CHECKERS, check_secret
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -368,6 +368,8 @@ class SettingChecker:
         if name not in SETTINGS:
             return
         setting = SETTINGS[name]
+        if setting.is_secret:
+            yield from check_secret(node, setting=setting, project=self.project)
         if setting.type is not None:
             yield from TYPE_CHECKERS[setting.type](
                 node,
