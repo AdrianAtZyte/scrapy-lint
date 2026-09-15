@@ -54,8 +54,10 @@ CASES: Cases = (
             # Attributes of an object are not resolved.
             (
                 (),
-                "settings['DUPEFILTER_CLASS'] = "
-                "'myproject.middlewares.MyMiddleware.from_crawler'",
+                (
+                    "settings['DUPEFILTER_CLASS'] = "
+                    "'myproject.middlewares.MyMiddleware.from_crawler'"
+                ),
                 NO_ISSUE,
             ),
             # Names imported into a module count as objects of that module.
