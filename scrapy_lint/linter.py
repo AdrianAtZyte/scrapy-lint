@@ -19,6 +19,8 @@ from .finders.domains import (
     UnreachableDomainIssueFinder,
     UrlInAllowedDomainsIssueFinder,
 )
+from .finders.imports import ImportIssueFinder
+from .finders.methods import DeprecatedArgumentIssueFinder
 from .finders.oldstyle import (
     OldSelectorIssueFinder,
     find_extract_then_index_issues,
@@ -58,6 +60,7 @@ class PythonIssueFinder(NodeVisitor):
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
+        import_issue_finder = ImportIssueFinder(setting_checker.project)
 
         self.finders: dict[str, Sequence[IssueFinder]] = {
             "Assign": [
@@ -77,12 +80,19 @@ class PythonIssueFinder(NodeVisitor):
             "ClassDef": [
                 domain_issue_finder,
                 SpiderAttributeIssueFinder(context),
+                DeprecatedArgumentIssueFinder(context),
             ],
             "Compare": [
                 setting_issue_finder,
             ],
             "FunctionDef": [
                 setting_issue_finder,
+            ],
+            "Import": [
+                import_issue_finder,
+            ],
+            "ImportFrom": [
+                import_issue_finder,
             ],
             "Subscript": [
                 find_extract_then_index_issues,
