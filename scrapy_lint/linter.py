@@ -14,6 +14,7 @@ from scrapy_lint.issues import Issue
 
 from .context import Context, Project
 from .errors import InputFileError
+from .finders.attributes import SpiderAttributeIssueFinder
 from .finders.domains import (
     UnreachableDomainIssueFinder,
     UrlInAllowedDomainsIssueFinder,
@@ -78,6 +79,7 @@ class PythonIssueFinder(NodeVisitor):
             ],
             "ClassDef": [
                 domain_issue_finder,
+                SpiderAttributeIssueFinder(context),
                 DeprecatedArgumentIssueFinder(context),
             ],
             "Compare": [
