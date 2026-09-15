@@ -21,7 +21,7 @@ def spider(body: str) -> str:
 
 
 ISSUE = ExpectedIssue(
-    message="SCP53 unneeded start method",
+    message="SCP54 unneeded start method",
     line=7,
     column=4,
     path=PATH,

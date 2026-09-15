@@ -1,21 +1,29 @@
 .. _scp53:
 
-============================
-SCP53: Unneeded start method
-============================
+=======================
+SCP53: Hardcoded secret
+=======================
 
 What it does
 ============
 
-Reports :meth:`~scrapy.Spider.start` and ``start_requests`` implementations
-that only send requests that :attr:`~scrapy.Spider.start_urls` could send.
+Reports a credential written as a literal string, either as the value of a
+setting known to hold a secret, such as :setting:`AWS_SECRET_ACCESS_KEY` or
+:setting:`ZYTE_API_KEY`, or in the ``apikeys`` key of the
+:file:`scrapinghub.yml` :ref:`shub configuration file <shub:configuration>`.
 
 
 Why is this bad?
 ================
 
-:attr:`~scrapy.Spider.start_urls` is shorter, and it makes the initial URLs of
-a spider easy to find, both for readers and for code that inspects spiders.
+A credential in your code base is a credential in your version control history,
+readable by anyone with access to the repository, and by anyone who gets access
+later. Rewriting history does not help: mirrors, forks, clones and backups keep
+the old commits.
+
+Credentials also belong to a person or an environment, not to a project.
+Hardcoding one forces everyone to share it, and makes it impossible to use
+different credentials for development and production.
 
 
 Example
@@ -23,40 +31,37 @@ Example
 
 .. code-block:: python
 
-    class MySpider(Spider):
-        name = "my"
+    ZYTE_API_KEY = "a0e2b7cee1e04b9f9d1b3f2f9d5a7c31"
 
-        async def start(self):
-            yield Request("https://toscrape.com/")
-
-Instead use:
+Read the credential from the environment instead:
 
 .. code-block:: python
 
-    class MySpider(Spider):
-        name = "my"
+    import os
 
-        start_urls = ["https://toscrape.com/"]
+    ZYTE_API_KEY = os.environ["ZYTE_API_KEY"]
 
+Some components read their credential from the environment on their own, in
+which case you can drop the setting altogether. :doc:`scrapy-zyte-api
+<scrapy-zyte-api:index>` reads ``ZYTE_API_KEY`` from the environment, and
+``shub`` reads ``SHUB_APIKEY``, so instead of:
 
-Requests without ``dont_filter``
-================================
+.. code-block:: yaml
 
-:attr:`~scrapy.Spider.start_urls` sends requests with
-:attr:`~scrapy.Request.dont_filter` enabled, so switching to it also disables
-duplicate filtering for those requests.
+    apikeys:
+      default: a0e2b7cee1e04b9f9d1b3f2f9d5a7c31
 
-If you implement :meth:`~scrapy.Spider.start` to keep duplicate filtering, and
-that is a scenario that you expect, :ref:`disable this rule <ignore>`.
+remove the ``apikeys`` key and export ``SHUB_APIKEY``.
 
+To set those environment variables automatically as you enter your project
+directory, use `direnv <https://direnv.net/>`_ and define them in an
+:file:`.envrc` file that you keep out of version control.
 
-Fix
-===
+Once a credential has been committed, rotate it. Removing it from the code
+does not make the leaked value safe to keep using.
 
-This rule is automatically fixable with the ``--fix`` command-line option: the
-start method is replaced with an equivalent
-:attr:`~scrapy.Spider.start_urls`, or removed if it only re-sends the requests
-of :attr:`~scrapy.Spider.start_urls`.
-
-To keep duplicate filtering as is, the fix only applies to requests that set
-:attr:`~scrapy.Request.dont_filter` to ``True``.
+This rule only knows about settings that always hold a secret. To catch
+credentials anywhere else in your code base, combine it with a dedicated secret
+scanner such as `gitleaks <https://github.com/gitleaks/gitleaks>`_ or
+`detect-secrets <https://github.com/Yelp/detect-secrets>`_, both available as
+pre-commit hooks.

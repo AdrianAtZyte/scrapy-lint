@@ -92,7 +92,7 @@ CASES = (
         "allowed_domains = ['http://ex\\'ample.com/']\n",
         0,
     ),
-    # SCP53: a start method becomes start_urls, keeping the quote style.
+    # SCP54: a start method becomes start_urls, keeping the quote style.
     (
         cleandoc(
             """
