@@ -303,9 +303,11 @@ CASES = [
                 )
                 for prefix, lineno, extra_issues in (
                     (
-                        f"stack: {LATEST_KNOWN_STACK}\n"
-                        "requirements:\n"
-                        "  file: requirements.txt",
+                        (
+                            f"stack: {LATEST_KNOWN_STACK}\n"
+                            "requirements:\n"
+                            "  file: requirements.txt"
+                        ),
                         4,
                         (MISSING_STACK_ISSUE,),
                     ),
