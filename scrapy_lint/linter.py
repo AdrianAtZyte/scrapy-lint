@@ -20,6 +20,7 @@ from .finders.domains import (
     UrlInAllowedDomainsIssueFinder,
 )
 from .finders.imports import ImportIssueFinder
+from .finders.items import DocumentationCommentIssueFinder
 from .finders.methods import DeprecatedArgumentIssueFinder
 from .finders.oldstyle import (
     OldSelectorIssueFinder,
@@ -54,7 +55,7 @@ class PythonIssueFinder(NodeVisitor):
         self,
         context: Context,
         setting_checker: SettingChecker,
-        source: str | None = None,
+        source: str,
     ):
         super().__init__()
         self.issues: list[Issue] = []
@@ -83,6 +84,7 @@ class PythonIssueFinder(NodeVisitor):
                 UnneededStartIssueFinder(source),
                 SpiderAttributeIssueFinder(context),
                 DeprecatedArgumentIssueFinder(context),
+                DocumentationCommentIssueFinder(source),
             ],
             "Compare": [
                 setting_issue_finder,
