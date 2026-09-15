@@ -587,8 +587,6 @@ class SettingModuleIssueFinder(NodeVisitor):
     def check_import_statement(self, node: Import | ImportFrom) -> None:
         for import_alias in node.names:
             name = import_alias.asname or import_alias.name
-            if not name:
-                continue
             pos = Pos.from_node(node, import_column(import_alias))
             if not name.isupper():
                 self.issues.extend(self.setting_checker.check_lowercase_name(name, pos))
