@@ -61,6 +61,11 @@ CASES: Cases = (
                             "DEFAULT_REQUEST_HEADERS",
                             "{1: 'keys do not have to be str'}",
                         ),
+                        ("DOWNLOAD_BIND_ADDRESS", "foo"),
+                        ("DOWNLOAD_BIND_ADDRESS", "None"),
+                        ("DOWNLOAD_BIND_ADDRESS", '"127.0.0.2"'),
+                        ("DOWNLOAD_BIND_ADDRESS", '("127.0.0.2", 5000)'),
+                        ("DOWNLOAD_BIND_ADDRESS", "(host, port)"),
                         ("DOWNLOAD_HANDLERS", "foo"),
                         ("DOWNLOAD_HANDLERS", "foo()"),
                         ("DOWNLOAD_HANDLERS", "None"),
@@ -344,6 +349,30 @@ CASES: Cases = (
                                     "invalid JSON: must be a dict, not list (['non-dict-compatible list'])",
                                 ),
                                 (
+                                    "DOWNLOAD_BIND_ADDRESS",
+                                    "[]",
+                                    0,
+                                    "must be a host string or a (host, port) tuple",
+                                ),
+                                (
+                                    "DOWNLOAD_BIND_ADDRESS",
+                                    '("127.0.0.2",)',
+                                    0,
+                                    "tuples must have 2 items, a host and a port",
+                                ),
+                                (
+                                    "DOWNLOAD_BIND_ADDRESS",
+                                    "(1, 5000)",
+                                    1,
+                                    "host must be a string, not int",
+                                ),
+                                (
+                                    "DOWNLOAD_BIND_ADDRESS",
+                                    '("127.0.0.2", "5000")',
+                                    14,
+                                    "port must be an integer, not str",
+                                ),
+                                (
                                     "DOWNLOAD_HANDLERS",
                                     "42",
                                     0,
@@ -498,8 +527,10 @@ CASES: Cases = (
                                         "FEEDS",
                                         value,
                                         4,
-                                        "FEEDS dict values must be dicts of "
-                                        "feed configurations",
+                                        (
+                                            "FEEDS dict values must be dicts of "
+                                            "feed configurations"
+                                        ),
                                     )
                                     for value in (
                                         '{f: "not_a_dict"}',
@@ -656,22 +687,28 @@ CASES: Cases = (
                                     "FEEDS",
                                     '{f: {"uri_params": "foo"}}',
                                     19,
-                                    "'uri_params' ('foo') does not look like "
-                                    "a valid import path",
+                                    (
+                                        "'uri_params' ('foo') does not look like "
+                                        "a valid import path"
+                                    ),
                                 ),
                                 (
                                     "FEEDS",
                                     '{f: {"uri_params": {}}}',
                                     19,
-                                    "'uri_params' must be a Python object or "
-                                    "its import path as a string",
+                                    (
+                                        "'uri_params' must be a Python object or "
+                                        "its import path as a string"
+                                    ),
                                 ),
                                 (
                                     "FEEDS",
                                     '{f: {"postprocessing": ["foo"]}}',
                                     24,
-                                    "postprocessing[0] ('foo') does not look "
-                                    "like a valid import path",
+                                    (
+                                        "postprocessing[0] ('foo') does not look "
+                                        "like a valid import path"
+                                    ),
                                 ),
                                 (
                                     "PERIODIC_LOG_DELTA",
@@ -836,13 +873,17 @@ CASES: Cases = (
                             '{f: {"fields": {1: 2}}}',
                             (
                                 (
-                                    "SCP36 invalid setting value: 'fields' "
-                                    "keys must be strings, not int (1)",
+                                    (
+                                        "SCP36 invalid setting value: 'fields' "
+                                        "keys must be strings, not int (1)"
+                                    ),
                                     16,
                                 ),
                                 (
-                                    "SCP36 invalid setting value: 'fields' "
-                                    "dict values must be strings, not int (2)",
+                                    (
+                                        "SCP36 invalid setting value: 'fields' "
+                                        "dict values must be strings, not int (2)"
+                                    ),
                                     19,
                                 ),
                             ),
