@@ -1,43 +1,38 @@
 .. _scp47:
 
-========================
-SCP47: Lowercase setting
-========================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Reports a setting name in a setting module (e.g. ``settings.py``) that is not
-uppercase but matches a :ref:`known setting of Scrapy itself <topics-settings>`
-or of a known `Scrapy plugin`_, or a :ref:`known-settings` entry, once
-uppercased.
-
-.. _Scrapy plugin: https://github.com/scrapy-plugins
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-Scrapy only reads uppercase names from setting modules, so a setting written
-with the wrong case is silently ignored and its intended value is never
-applied, which can lead to bugs or unexpected behavior. It may also break
-third-party tooling that expects settings to be uppercase.
+Scrapy fails to start when it cannot import a component.
 
 
 Example
 =======
 
-The following code will trigger SCP47, because ``robotstxt_obey`` is ignored
-by Scrapy and :setting:`ROBOTSTXT_OBEY` keeps its default value:
+.. code-block:: python
+    :caption: :file:`myproject/settings.py`
+
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyMiddleware": 100,
+    }
+
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
 
 .. code-block:: python
-    :caption: ``settings.py``
+    :caption: :file:`myproject/settings.py`
 
-    robotstxt_obey = True
-
-Use the uppercase setting name instead:
-
-.. code-block:: python
-    :caption: ``settings.py``
-
-    ROBOTSTXT_OBEY = True
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }

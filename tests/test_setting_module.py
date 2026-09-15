@@ -197,12 +197,12 @@ CASES: Cases = (
                     ),
                 )
             ),
-            # SCP47 lowercase setting: class and function definitions
+            # SCP59 lowercase setting: class and function definitions
             *(
                 (
                     "\n".join(lines),
                     ExpectedIssue(
-                        f"SCP47 lowercase setting: did you mean: {upper}?",
+                        f"SCP59 lowercase setting: did you mean: {upper}?",
                         column=column,
                         path=PATH,
                     ),
@@ -276,12 +276,12 @@ CASES: Cases = (
                     "import FOO as bar",
                 )
             ),
-            # SCP47 lowercase setting: imports
+            # SCP59 lowercase setting: imports
             *(
                 (
                     code,
                     ExpectedIssue(
-                        "SCP47 lowercase setting: did you mean: ROBOTSTXT_OBEY?",
+                        "SCP59 lowercase setting: did you mean: ROBOTSTXT_OBEY?",
                         column=column if ALIAS_HAS_COL_OFFSET else 0,
                         path=PATH,
                     ),
@@ -384,12 +384,12 @@ CASES: Cases = (
                 "FOO = 'bar'",
                 ExpectedIssue("SCP27 unknown setting", path=PATH),
             ),
-            # SCP47 lowercase setting: assignments
+            # SCP59 lowercase setting: assignments
             *(
                 (
                     code,
                     ExpectedIssue(
-                        f"SCP47 lowercase setting: did you mean: {upper}?",
+                        f"SCP59 lowercase setting: did you mean: {upper}?",
                         path=PATH,
                     ),
                 )
@@ -466,7 +466,7 @@ CASES: Cases = (
             ),
         )
     ),
-    # SCP47 lowercase setting also fires for known-settings entries.
+    # SCP59 lowercase setting also fires for known-settings entries.
     (
         [
             File("[settings]\na=a", path="scrapy.cfg"),
@@ -475,7 +475,7 @@ CASES: Cases = (
         (
             *default_issues(PATH),
             ExpectedIssue(
-                "SCP47 lowercase setting: did you mean: CUSTOM_SETTING?",
+                "SCP59 lowercase setting: did you mean: CUSTOM_SETTING?",
                 path=PATH,
             ),
         ),
@@ -548,10 +548,12 @@ CASES: Cases = (
                 (code, 8, ())
                 for code in (
                     "USER_AGENT = 'Jane Doe (jane@doe.example)'",
-                    "if a:\n"
-                    "    USER_AGENT = 'Jane Doe (jane@doe.example)'\n"
-                    "else:\n"
-                    "    USER_AGENT = 'Example Company (+https://company.example)'",
+                    (
+                        "if a:\n"
+                        "    USER_AGENT = 'Jane Doe (jane@doe.example)'\n"
+                        "else:\n"
+                        "    USER_AGENT = 'Example Company (+https://company.example)'"
+                    ),
                 )
             ),
             # SCP09 robots.txt ignored by default

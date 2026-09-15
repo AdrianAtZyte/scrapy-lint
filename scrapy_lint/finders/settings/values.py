@@ -9,12 +9,13 @@ from packaging.version import Version
 from scrapy_lint.ast import is_dict, iter_dict
 from scrapy_lint.data.settings import FEEDS_KEY_VERSION_ADDED
 from scrapy_lint.finders.settings.types import (
-    check_import_path_need,
+    check_component_path,
     has_feed_uri_params,
     is_import_path,
     is_path_obj,
 )
 from scrapy_lint.issues import (
+    HARDCODED_SECRET,
     INVALID_SETTING_VALUE,
     NO_CONTACT_INFO,
     SETTING_NEEDS_UPGRADE,
@@ -27,7 +28,8 @@ from scrapy_lint.issues import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from scrapy_lint.context import Context
+    from scrapy_lint.context import Context, Project
+    from scrapy_lint.settings import Setting
 
 
 def check_slot_config(node: Call | Dict) -> Generator[Issue]:
@@ -160,7 +162,7 @@ def check_feed_class_list(
                 )
                 yield Issue(INVALID_SETTING_VALUE, pos_elt, detail)
             else:
-                yield from check_import_path_need(elt, context.project)
+                yield from check_component_path(elt, context.project)
 
 
 def check_feed_fields(param: str, value: expr, **_kwargs) -> Generator[Issue]:
@@ -252,7 +254,7 @@ def check_feed_obj_list(param: str, value: expr, context: Context) -> Generator[
     if not (isinstance(value, Constant) and isinstance(value.value, str)):
         return
     if is_import_path(value.value):
-        yield from check_import_path_need(value, context.project)
+        yield from check_component_path(value, context.project)
         return
     detail = f"{param!r} ({value.value!r}) does not look like a valid import path"
     yield Issue(INVALID_SETTING_VALUE, pos, detail)
@@ -411,6 +413,16 @@ def check_user_agent(node: expr, **_) -> Generator[Issue]:
         or not any(re.search(p, node.value) for p in REQUIRED_UA_PATTERNS)
     ):
         yield issue
+
+
+def check_secret(node: expr, *, setting: Setting, project: Project) -> Generator[Issue]:
+    if not isinstance(node, Constant) or not isinstance(node.value, str):
+        return
+    # An empty value disables the credential, and the default value is public
+    # knowledge.
+    if not node.value or node.value == setting.get_default_value(project):
+        return
+    yield Issue(HARDCODED_SECRET, Pos.from_node(node), setting.name)
 
 
 class ValueChecker(Protocol):  # pylint: disable=too-few-public-methods
