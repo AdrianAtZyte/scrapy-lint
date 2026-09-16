@@ -1,55 +1,38 @@
 .. _scp47:
 
-=========================
-SCP47: No allowed_domains
-=========================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Finds spider classes that define :attr:`~scrapy.Spider.start_urls` but not
-:attr:`~scrapy.Spider.allowed_domains`.
-
-Only classes that directly subclass a Scrapy spider class are checked, so a
-spider that inherits :attr:`~scrapy.Spider.allowed_domains` from a base spider
-class of your own is not reported.
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-Without :attr:`~scrapy.Spider.allowed_domains`, a bug in a link-following
-callback can send your spider crawling any website it finds a link to, hitting
-servers that never expected your traffic.
-
-If your spider is meant to crawl an open-ended set of domains, disable this
-rule with :ref:`ignore` or :ref:`per-file-ignores`.
+Scrapy fails to start when it cannot import a component.
 
 
 Example
 =======
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    import scrapy
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyMiddleware": 100,
+    }
 
-
-    class MySpider(scrapy.Spider):
-        name = "myspider"
-        start_urls = [
-            "https://a.example/",
-        ]
-
-Use instead:
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    import scrapy
-
-
-    class MySpider(scrapy.Spider):
-        name = "myspider"
-        allowed_domains = ["a.example"]
-        start_urls = [
-            "https://a.example/",
-        ]
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }

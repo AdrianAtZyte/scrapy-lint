@@ -69,14 +69,14 @@ CASES: Cases = (
             ),
         ),
         ExpectedIssue(
-            message="SCP47 no allowed_domains",
+            message="SCP57 no allowed_domains",
             line=1,
             column=6,
             path="a.py",
         ),
         {},
     ),
-    # SCP47
+    # SCP57
     (
         (
             File(
@@ -104,7 +104,7 @@ CASES: Cases = (
             ),
         ),
         ExpectedIssue(
-            message="SCP47 no allowed_domains",
+            message="SCP57 no allowed_domains",
             line=11,
             column=6,
             path="a.py",
