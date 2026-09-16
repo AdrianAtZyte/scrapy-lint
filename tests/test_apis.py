@@ -14,12 +14,13 @@ REQUIREMENTS_PATH = "requirements.txt"
 REMOVED_IN = Version("2.11.0")
 BEFORE_REMOVAL = Version("2.10.0")
 LATEST = PACKAGES["scrapy"].highest_known_version
+LOWEST_SAFE = PACKAGES["scrapy"].lowest_safe_version
 INCOMPLETE_FREEZE = ExpectedIssue(
     "SCP13 incomplete requirements freeze",
     path=REQUIREMENTS_PATH,
 )
 INSECURE = ExpectedIssue(
-    "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
+    f"SCP15 insecure requirement: scrapy {LOWEST_SAFE} implements security fixes",
     path=REQUIREMENTS_PATH,
 )
 BINARY = "binary parameter of scrapy.exporters.PythonItemExporter"
@@ -116,7 +117,7 @@ CASES: Cases = (
             # higher version.
             *(
                 (
-                    LATEST,
+                    BEFORE_REMOVAL,
                     code,
                     ExpectedIssue(
                         f"SCP77 discouraged API: {subject}, to be deprecated in "
@@ -142,7 +143,7 @@ CASES: Cases = (
             ),
             # SCP77: discouraged API (no issue)
             *(
-                (LATEST, code, NO_ISSUE)
+                (BEFORE_REMOVAL, code, NO_ISSUE)
                 for code in (
                     COMMAND.format(method="long_desc"),
                     COMMAND.format(method="help").replace("ScrapyCommand", "object"),

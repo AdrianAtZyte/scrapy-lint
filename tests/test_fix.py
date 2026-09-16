@@ -7,7 +7,7 @@ import pytest
 
 from scrapy_lint.data.packages import PACKAGES
 from scrapy_lint.finders.domains import UrlInAllowedDomainsIssueFinder
-from scrapy_lint.finders.spiders import UnneededStartIssueFinder
+from scrapy_lint.finders.spiders import StartUrlIssueFinder, UnneededStartIssueFinder
 from scrapy_lint.fixes import Edit, apply_edits
 from scrapy_lint.issues import Pos
 
@@ -382,6 +382,36 @@ CASES = (
         'class ProductItem(scrapy.Item):\n    #: Name, e.g. "Chair"\n    name = scrapy.Field()\n',
         0,
     ),
+    # SCP67: a string start_url is renamed and wrapped in a list.
+    (
+        cleandoc(
+            """
+            class MySpider(Spider):
+                start_url = "https://toscrape.com"
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            class MySpider(Spider):
+                start_urls = ["https://toscrape.com"]
+            """,
+        )
+        + "\n",
+        1,
+    ),
+    # A sequence value is renamed without being wrapped.
+    (
+        'class MySpider(Spider):\n    start_url = ("https://toscrape.com",)\n',
+        'class MySpider(Spider):\n    start_urls = ("https://toscrape.com",)\n',
+        1,
+    ),
+    # A value that could be either a URL or a sequence of URLs is not rewritten.
+    (
+        "class MySpider(Spider):\n    start_url = URL\n",
+        "class MySpider(Spider):\n    start_url = URL\n",
+        0,
+    ),
 )
 
 
@@ -536,3 +566,10 @@ def test_build_start_fix_without_source():
     issues = list(UnneededStartIssueFinder()(node))
     assert len(issues) == 1
     assert issues[0].fix is None
+
+
+def test_build_start_url_fix_without_source():
+    finder = StartUrlIssueFinder()
+    statement = ast.parse('start_url = "https://toscrape.com"').body[0]
+    assert isinstance(statement, ast.Assign)
+    assert finder.build_fix(statement) is None
