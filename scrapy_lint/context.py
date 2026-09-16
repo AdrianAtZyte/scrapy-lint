@@ -8,7 +8,6 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from packaging.version import Version
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
@@ -18,12 +17,14 @@ except ImportError:  # Python < 3.11
     import tomli as tomllib
 
 from scrapy_lint.errors import InputFileError
-from scrapy_lint.requirements import iter_requirement_lines
+from scrapy_lint.requirements import iter_requirement_lines, version_range
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from packaging.requirements import Requirement
+
+    from scrapy_lint.versions import VersionRange
 
 
 def _defines(module_file: Path, name: str) -> bool:
@@ -50,17 +51,12 @@ class Project:
     path: Path
 
     @cached_property
-    def frozen_requirements(self) -> dict[str, Version]:
-        result = {}
-        for name, requirements in self._requirements.items():
-            for requirement in requirements:
-                if len(requirement.specifier) != 1:
-                    continue
-                spec = next(iter(requirement.specifier))
-                if spec.operator != "==":
-                    continue
-                result[name] = Version(spec.version)
-        return result
+    def version_ranges(self) -> dict[str, VersionRange]:
+        """Versions of each required package that this project allows."""
+        return {
+            name: version_range(requirements)
+            for name, requirements in self._requirements.items()
+        }
 
     @cached_property
     def scrapy_lint_options(self) -> dict[str, Any]:
