@@ -1,37 +1,38 @@
 .. _scp47:
 
-=========================
-SCP47: End-of-life Python
-=========================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Finds out if your project declares, or runs on, a version of Python that has
-reached its `end of life <https://devguide.python.org/versions/>`_.
-
-The Python version comes from the :ref:`declaration of your project <scp49>`
-and from the ``stack`` values of your :file:`scrapinghub.yml` :ref:`shub
-configuration file <shub:configuration>`.
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-Once a version of Python reaches its end of life, it stops receiving security
-fixes, and the packages of the Scrapy ecosystem stop supporting it, so you no
-longer get their new features and bug fixes either.
+Scrapy fails to start when it cannot import a component.
 
 
 Example
 =======
 
-.. code-block:: text
+.. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    3.9.23
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyMiddleware": 100,
+    }
 
-Instead use:
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
 
-.. code-block:: text
+.. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    3.12.11
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }

@@ -1,48 +1,27 @@
 .. _scp49:
 
 ========================
-SCP49: Python not frozen
+SCP49: Deprecated import
 ========================
 
 What it does
 ============
 
-Finds out if the Python version that your project declares does not name a
-single Python version series, e.g. a version range.
+Reports imports of modules and objects that are deprecated for the package
+versions frozen in your project requirements.
 
-Leaving the patch version out, e.g. ``3.12``, is fine: Python patch releases
-only carry bug fixes, and the rare fixes that break backward compatibility
-reach every supported series at once, so pinning the patch version protects
-you from nothing.
+It also reports the package and version in which the import was deprecated, so
+that you can check the corresponding release notes for sunset guidance.
 
-The declaration comes from the :file:`.python-version` file, or from the
-``requires-python`` key of your :file:`pyproject.toml` file.
+Sometimes sunset guidance is also provided in the error message.
 
 
 Why is this bad?
 ================
 
-A Scrapy project is an application, not a library, so every developer and every
-environment that runs it should run it on the same Python, in the same way that
-they should install the same :ref:`frozen requirements <scp13>`.
+Deprecated imports will stop working in future versions of the corresponding
+package.
 
-Python versions that differ between environments introduce bugs that only
-happen for some developers, or only in production, and that are hard to
-reproduce. Every Python series has its own syntax, its own standard library and
-its own wheels.
-
-
-Example
-=======
-
-.. code-block:: toml
-
-    [project]
-    requires-python = ">=3.12"
-
-Instead use:
-
-.. code-block:: toml
-
-    [project]
-    requires-python = "==3.12.*"
+If you do not follow sunset guidance now to migrate or remove the deprecated
+import, the next time you upgrade the corresponding package your project could
+break.

@@ -30,14 +30,14 @@ def stack_issue(message: str) -> ExpectedIssue:
 
 def eol_issue(key: str, series: str, eol: str) -> str:
     return (
-        f"SCP47 end-of-life Python: {key} allows Python {series}, which "
+        f"SCP63 end-of-life Python: {key} allows Python {series}, which "
         f"reached its end of life on {eol}"
     )
 
 
 def unfrozen_issue(key: str, value: str) -> str:
     return (
-        f"SCP49 Python not frozen: {key} ({value}) allows more than one Python version"
+        f"SCP65 Python not frozen: {key} ({value}) allows more than one Python version"
     )
 
 
@@ -134,7 +134,7 @@ CASES: Cases = (
                 EOL_STACK,
                 (
                     stack_issue(
-                        "SCP47 end-of-life Python: stack Python 3.8 reached its "
+                        "SCP63 end-of-life Python: stack Python 3.8 reached its "
                         "end of life on 2024-10-07",
                     ),
                 ),
@@ -158,7 +158,7 @@ CASES: Cases = (
                 "3.13.5",
                 (
                     stack_issue(
-                        "SCP48 stack Python mismatch: stack Python 3.12 does "
+                        "SCP64 stack Python mismatch: stack Python 3.12 does "
                         "not match .python-version (3.13.5)",
                     ),
                 ),
@@ -179,7 +179,7 @@ CASES: Cases = (
                 path="pyproject.toml",
             ),
             stack_issue(
-                "SCP48 stack Python mismatch: stack Python 3.12 does not match "
+                "SCP64 stack Python mismatch: stack Python 3.12 does not match "
                 "requires-python (>=3.13)",
             ),
         ),

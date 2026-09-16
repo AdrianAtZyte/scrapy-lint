@@ -1,48 +1,47 @@
 .. _scp48:
 
-============================
-SCP48: Stack Python mismatch
-============================
+==================================
+SCP48: Deprecated spider attribute
+==================================
 
 What it does
 ============
 
-Finds out if the Python version of a ``stack`` of your :file:`scrapinghub.yml`
-:ref:`shub configuration file <shub:configuration>` does not match the
-:ref:`Python version that your project declares <scp49>`.
+Reports spider attributes that are deprecated for the Scrapy version frozen in
+your project requirements.
+
+It also reports the version in which the attribute was deprecated, and the
+setting to use instead.
 
 
 Why is this bad?
 ================
 
-Your code runs on the Python version of the stack. If that is not the Python
-version that you develop and test on, your project may break once deployed,
-even though it works locally and passes your tests.
+Deprecated spider attributes will stop working in future versions of Scrapy.
 
-The Python version of a stack is part of its image, while the packages that it
-comes with can be replaced through your :ref:`requirements file <requirements>`.
-So declaring the Python version of your stack is usually a much smaller change
-than moving to a stack built on the Python version you declare, which comes
-with a different set of packages.
+If you do not migrate now, the next time you upgrade Scrapy your project could
+break or misbehave.
 
 
-Example
-=======
+How to fix it?
+==============
 
-Given a project deployed on a stack that runs Python 3.11:
+Move the value to the matching setting, usually through
+:attr:`~scrapy.Spider.custom_settings`. For example, instead of:
 
-.. code-block:: yaml
+.. code-block:: python
 
-    stack: scrapy:2.12-20241202
+    class ToScrapeComSpider(Spider):
+        name = "toscrape_com"
+        download_timeout = 15
 
-And a :file:`.python-version` file that declares a different Python version:
+Do:
 
-.. code-block:: text
+.. code-block:: python
 
-    3.12
+    class ToScrapeComSpider(Spider):
+        name = "toscrape_com"
+        custom_settings = {"DOWNLOAD_TIMEOUT": 15}
 
-Instead use:
-
-.. code-block:: text
-
-    3.11
+Mind that a setting has a different scope than a spider attribute: code that
+reads the attribute from the spider object needs to read the setting instead.

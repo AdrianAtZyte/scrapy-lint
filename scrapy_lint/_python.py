@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
 
 from packaging.version import Version
@@ -22,7 +22,7 @@ def end_of_life(series: str) -> date | None:
     with no known end-of-life date.
     """
     eol = PYTHON_EOL.get(series)
-    if eol is None or eol > date.today():
+    if eol is None or eol > datetime.now(tz=timezone.utc).date():
         return None
     return eol
 
