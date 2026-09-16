@@ -1,49 +1,38 @@
 .. _scp47:
 
-======================================
-SCP47: start_url instead of start_urls
-======================================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Finds a ``start_url`` attribute in a class that does not define
-:attr:`~scrapy.Spider.start_urls`.
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-Scrapy reads :attr:`~scrapy.Spider.start_urls`, so a spider that defines
-``start_url`` instead crawls nothing.
+Scrapy fails to start when it cannot import a component.
 
 
 Example
 =======
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    import scrapy
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyMiddleware": 100,
+    }
 
-
-    class MySpider(scrapy.Spider):
-        name = "myspider"
-        start_url = "https://toscrape.com"
-
-Use instead:
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    import scrapy
-
-
-    class MySpider(scrapy.Spider):
-        name = "myspider"
-        start_urls = ["https://toscrape.com"]
-
-
-Fix
-===
-
-This rule is automatically fixable with the ``--fix`` command-line option:
-the attribute is renamed, and its value wrapped in a list if needed.
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }
