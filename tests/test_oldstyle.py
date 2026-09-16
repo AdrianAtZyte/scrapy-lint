@@ -98,12 +98,12 @@ CASES: Cases = (
                     'response.css("*").extract()[n]',
                 )
             ),
-            # SCP47: uncached urlparse
+            # SCP78: uncached urlparse
             *(
                 (
                     code,
                     ExpectedIssue(
-                        message="SCP47 uncached urlparse",
+                        message="SCP78 uncached urlparse",
                         column=column,
                         path=PATH,
                     ),
@@ -114,7 +114,7 @@ CASES: Cases = (
                     ("netloc = urlparse(response.url).netloc", 9),
                 )
             ),
-            # SCP47: uncached urlparse (no issue)
+            # SCP78: uncached urlparse (no issue)
             *(
                 (code, NO_ISSUE)
                 for code in (

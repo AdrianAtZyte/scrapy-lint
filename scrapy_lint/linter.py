@@ -14,10 +14,14 @@ from scrapy_lint.issues import Issue
 
 from .context import Context, Project
 from .errors import InputFileError
+from .finders.attributes import SpiderAttributeIssueFinder
 from .finders.domains import (
     UnreachableDomainIssueFinder,
     UrlInAllowedDomainsIssueFinder,
 )
+from .finders.imports import ImportIssueFinder
+from .finders.items import DocumentationCommentIssueFinder
+from .finders.methods import DeprecatedArgumentIssueFinder
 from .finders.oldstyle import (
     OldSelectorIssueFinder,
     UrlparseIssueFinder,
@@ -32,6 +36,7 @@ from .finders.settings import (
     SettingIssueFinder,
     SettingModuleIssueFinder,
 )
+from .finders.spiders import UnneededStartIssueFinder
 from .finders.unsupported import LambdaCallbackIssueFinder
 from .finders.zyte import ZyteCloudConfigIssueFinder
 
@@ -49,6 +54,7 @@ class IssueFinder(Protocol):  # pylint: disable=too-few-public-methods
 class PythonIssueFinder(NodeVisitor):
     def __init__(
         self,
+        context: Context,
         setting_checker: SettingChecker,
         source: str,
         tree: ast.Module,
@@ -58,6 +64,7 @@ class PythonIssueFinder(NodeVisitor):
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
+        import_issue_finder = ImportIssueFinder(setting_checker.project)
 
         self.finders: dict[str, Sequence[IssueFinder]] = {
             "Assign": [
@@ -77,12 +84,22 @@ class PythonIssueFinder(NodeVisitor):
             ],
             "ClassDef": [
                 domain_issue_finder,
+                UnneededStartIssueFinder(source),
+                SpiderAttributeIssueFinder(context),
+                DeprecatedArgumentIssueFinder(context),
+                DocumentationCommentIssueFinder(source),
             ],
             "Compare": [
                 setting_issue_finder,
             ],
             "FunctionDef": [
                 setting_issue_finder,
+            ],
+            "Import": [
+                import_issue_finder,
+            ],
+            "ImportFrom": [
+                import_issue_finder,
             ],
             "Subscript": [
                 find_extract_then_index_issues,
@@ -235,6 +252,6 @@ class Linter:
         )
         if file in self.context.project.setting_module_paths:
             yield from setting_module_finder.check(tree)
-        finder = PythonIssueFinder(self.setting_checker, source, tree)
+        finder = PythonIssueFinder(self.context, self.setting_checker, source, tree)
         finder.visit(tree)
         yield from finder.issues

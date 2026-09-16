@@ -1,59 +1,38 @@
 .. _scp47:
 
-========================
-SCP47: Uncached urlparse
-========================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Finds usage of :func:`~urllib.parse.urlparse` on the URL of a request or a
-response that can be replaced with
-:func:`~scrapy.utils.httpobj.urlparse_cached`.
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-:func:`~scrapy.utils.httpobj.urlparse_cached` caches its result on the request
-or response object, so parsing the same URL again, in your code or in Scrapy
-itself, costs nothing. Scrapy parses the URL of every request it sends, so for
-requests the cache is usually warm already.
+Scrapy fails to start when it cannot import a component.
 
 
 Example
 =======
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    import scrapy
-    from urllib.parse import urlparse
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyMiddleware": 100,
+    }
 
-
-    class MySpider(scrapy.Spider):
-        name = "myspider"
-
-        def parse(self, response):
-            yield {"hostname": urlparse(response.url).hostname}
-
-Use instead:
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    import scrapy
-    from scrapy.utils.httpobj import urlparse_cached
-
-
-    class MySpider(scrapy.Spider):
-        name = "myspider"
-
-        def parse(self, response):
-            yield {"hostname": urlparse_cached(response).hostname}
-
-
-Fix
-===
-
-This rule is automatically fixable with the ``--fix`` command-line option: the
-call is replaced and :func:`~scrapy.utils.httpobj.urlparse_cached` is imported.
-An :func:`~urllib.parse.urlparse` import that the fix leaves unused is kept.
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }
