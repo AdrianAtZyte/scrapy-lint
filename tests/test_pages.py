@@ -18,7 +18,7 @@ def code(text: str) -> str:
     return cleandoc(text) + "\n"
 
 
-ISSUE = ExpectedIssue("SCP47 no @attrs.define", column=6, path=PATH)
+ISSUE = ExpectedIssue("SCP61 no @attrs.define", column=6, path=PATH)
 
 CASES: Cases = tuple(
     (File(code(source), path=PATH), expected, {})

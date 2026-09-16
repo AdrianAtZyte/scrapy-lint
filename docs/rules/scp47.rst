@@ -1,51 +1,38 @@
 .. _scp47:
 
-=======================
-SCP47: No @attrs.define
-=======================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Reports :doc:`page objects <web-poet:page-objects/index>` that declare
-attributes without an :func:`attrs.define` decorator.
-
-Only page objects that subclass a :doc:`web-poet <web-poet:index>` class
-directly are reported, since the base classes of a page object that subclasses
-a page object of your own cannot be determined reliably.
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-A page object declares its dependencies as class attributes, and
-:doc:`scrapy-poet <scrapy-poet:index>` fills them in when it builds the page
-object. Without an :func:`attrs.define` decorator, those attributes are plain
-annotations, so nothing is injected and reading them raises
-:exc:`AttributeError` at run time.
+Scrapy fails to start when it cannot import a component.
 
 
 Example
 =======
 
-Instead of:
+.. code-block:: python
+    :caption: :file:`myproject/settings.py`
+
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyMiddleware": 100,
+    }
+
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    from web_poet import Stats, WebPage
-
-
-    class MyPage(WebPage):
-        stats: Stats
-
-Use:
-
-.. code-block:: python
-
-    import attrs
-    from web_poet import Stats, WebPage
-
-
-    @attrs.define
-    class MyPage(WebPage):
-        stats: Stats
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }
