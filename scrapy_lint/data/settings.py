@@ -77,6 +77,11 @@ SETTINGS = {
         type=SettingType.FLOAT,
         default_value=VersionedValue(1.0),
     ),
+    "AWS_MAX_POOL_CONNECTIONS": Setting(
+        type=SettingType.OPT_INT,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("2.18.0")),
+    ),
     "BOT_NAME": Setting(
         type=SettingType.STR,
         default_value=VersionedValue("scrapybot"),
@@ -176,6 +181,11 @@ SETTINGS = {
         versioning=Versioning(added_in=Version("2.15.0")),
     ),
     "DOWNLOAD_DELAY": Setting(type=SettingType.FLOAT, default_value=VersionedValue(0)),
+    "DOWNLOAD_DELAY_JITTER": Setting(
+        type=SettingType.FLOAT,
+        default_value=VersionedValue(0.5),
+        versioning=Versioning(added_in=Version("2.19.0")),
+    ),
     "DOWNLOAD_FAIL_ON_DATALOSS": Setting(
         type=SettingType.BOOL,
         default_value=VersionedValue(True),
@@ -467,6 +477,11 @@ SETTINGS = {
         default_value=VersionedValue(None),
         versioning=Versioning(added_in=Version("2.3.0")),
     ),
+    "HTTP2_MAX_FRAME_SIZE": Setting(
+        type=SettingType.INT,
+        default_value=VersionedValue(16384),
+        versioning=Versioning(added_in=Version("2.18.0")),
+    ),
     "HTTPAUTH_DOMAIN": Setting(
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
@@ -563,11 +578,21 @@ SETTINGS = {
         default_value=VersionedValue("scrapy.pipelines.ItemPipelineManager"),
     ),
     "JOBDIR": Setting(type=SettingType.OPT_PATH, default_value=VersionedValue(None)),
+    "LOG_COLOR": Setting(
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("2.19.0")),
+    ),
     "LOG_DATEFORMAT": Setting(
         type=SettingType.STR,
         default_value=VersionedValue("%Y-%m-%d %H:%M:%S"),
     ),
     "LOG_ENABLED": Setting(type=SettingType.BOOL, default_value=VersionedValue(True)),
+    "LOG_INSTALL_ROOT_HANDLER": Setting(
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("2.19.0")),
+    ),
     "LOG_ENCODING": Setting(
         type=SettingType.STR,
         default_value=VersionedValue("utf-8"),
@@ -713,6 +738,36 @@ SETTINGS = {
         type=SettingType.DICT,
         default_value=VersionedValue({}),
         versioning=Versioning(added_in=Version("2.15.0")),
+    ),
+    "REMOTE_CONTROL_ENABLED": Setting(
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("2.19.0")),
+    ),
+    "REMOTE_CONTROL_JOBS_DIR": Setting(
+        type=SettingType.OPT_PATH,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("2.19.0")),
+    ),
+    "REMOTE_CONTROL_TIMEOUT_DEFAULT": Setting(
+        type=SettingType.FLOAT,
+        default_value=VersionedValue(30.0),
+        versioning=Versioning(added_in=Version("2.19.0")),
+    ),
+    "REMOTE_CONTROL_TIMEOUT_MAX": Setting(
+        type=SettingType.FLOAT,
+        default_value=VersionedValue(600.0),
+        versioning=Versioning(added_in=Version("2.19.0")),
+    ),
+    "REMOTE_CONTROL_OUTPUT_MAX_BYTES": Setting(
+        type=SettingType.INT,
+        default_value=VersionedValue(64 * 1024),
+        versioning=Versioning(added_in=Version("2.19.0")),
+    ),
+    "REMOTE_CONTROL_TRACEBACK_MAX_BYTES": Setting(
+        type=SettingType.INT,
+        default_value=VersionedValue(16 * 1024),
+        versioning=Versioning(added_in=Version("2.19.0")),
     ),
     "REQUEST_FINGERPRINTER_CLASS": Setting(
         type=SettingType.OBJ,
@@ -1030,6 +1085,11 @@ SETTINGS = {
     "MEDIA_ALLOW_REDIRECTS": Setting(
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
+    ),
+    "META_COPY_WARN_SKIP_KEYS": Setting(
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(added_in=Version("2.18.0")),
     ),
     # Deprecated Scrapy built-in settings, in reverse deprecation order.
     "CRAWLSPIDER_FOLLOW_LINKS": Setting(
