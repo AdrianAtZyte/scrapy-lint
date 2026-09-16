@@ -9,6 +9,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from packaging.utils import canonicalize_name
 from packaging.version import Version
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
@@ -92,7 +93,14 @@ class Project:
 
     @cached_property
     def packages(self) -> set[str]:
-        return set(self._requirements)
+        packages = set(self._requirements)
+        # The package that a code base defines is not among its requirements,
+        # but it is available to it. An empty set means that no requirements
+        # are declared, i.e. that nothing is known about available packages.
+        name = self._pyproject.get("project", {}).get("name")
+        if packages and isinstance(name, str):
+            packages.add(canonicalize_name(name))
+        return packages
 
     @cached_property
     def requirements_file(self) -> Path | None:
