@@ -256,6 +256,25 @@ CASES = [
                     "nonexistent/requirements.txt",
                 )
             ),
+            # SCP53 hardcoded secret
+            *(
+                (
+                    "\n".join([prefix, "apikeys:", "  default: 0bbf0941454848"]),
+                    (issue("SCP53 hardcoded secret: apikeys", line=lineno, column=0),),
+                )
+                for prefix, lineno in (
+                    (
+                        (
+                            f"stack: {LATEST_KNOWN_STACK}\n"
+                            "requirements:\n"
+                            "  file: requirements.txt"
+                        ),
+                        4,
+                    ),
+                    # Custom image projects skip the remaining config checks.
+                    ("image: custom:latest", 2),
+                )
+            ),
             # Multiple issues
             (
                 "\n".join(
