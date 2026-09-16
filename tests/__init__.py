@@ -59,10 +59,10 @@ class ExpectedIssue:
         path: str | None = None,
     ) -> ExpectedIssue:
         return ExpectedIssue(
-            message=message if message else self.message,
-            line=line if line else self.line,
+            message=message or self.message,
+            line=line or self.line,
             column=column if column is not None else self.column,
-            path=path if path else self.path,
+            path=path or self.path,
         )
 
 
@@ -73,7 +73,7 @@ def outdated_scrapy_issue(
     path: str = "requirements.txt",
 ) -> ExpectedIssue:
     return ExpectedIssue(
-        f"SCP47 outdated requirement: scrapy {version} predates "
+        f"SCP73 outdated requirement: scrapy {version} predates "
         f"{SCRAPY_LATEST} by over a year",
         line=line,
         path=path,
@@ -85,9 +85,9 @@ def outdated_scrapy(
     *,
     path: str = "requirements.txt",
 ) -> tuple[ExpectedIssue, ...]:
-    """Return the SCP47 issues expected for the scrapy pins in *requirements*.
+    """Return the SCP73 issues expected for the scrapy pins in *requirements*.
 
-    Tests about other rules use this instead of spelling SCP47 out, so that
+    Tests about other rules use this instead of spelling SCP73 out, so that
     they keep passing as the vendored release data moves forward.
     """
     if not isinstance(requirements, str):

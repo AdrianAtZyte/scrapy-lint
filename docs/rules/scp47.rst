@@ -1,45 +1,38 @@
 .. _scp47:
 
-===========================
-SCP47: Outdated requirement
-===========================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Finds out if your :ref:`requirements file <requirements>` contains a frozen
-[#f1]_ version of Scrapy that was released more than a year before the latest
-Scrapy release.
-
-.. [#f1] This rule only fires for frozen versions (using ``==``). Non-frozen
-    version specifications like ``scrapy>=2.13.2`` or ``scrapy~=2.13`` are
-    ignored.
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-`Scrapy keeps deprecated features working for at least 1 year
-<https://docs.scrapy.org/en/latest/versioning.html#deprecation-policy>`_. Once
-you fall behind that window, features that were deprecated in the version you
-use may already be gone from the latest version, so upgrading stops being a
-matter of reviewing backward-incompatible changes only.
-
-When you upgrade, read the `release notes
-<https://docs.scrapy.org/en/latest/news.html>`_ of every version in between,
-and mind their deprecation removals as much as their backward-incompatible
-changes.
+Scrapy fails to start when it cannot import a component.
 
 
 Example
 =======
 
-.. code-block:: text
+.. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    scrapy==2.13.2
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyMiddleware": 100,
+    }
 
-Instead use:
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
 
-.. code-block:: text
+.. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    scrapy==2.17.0
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }

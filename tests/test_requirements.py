@@ -266,7 +266,7 @@ CASES: Cases = (
         for requirements, issues in (
             # SCP14 unsupported requirement
             # SCP15 insecure requirement
-            # SCP47 outdated requirement
+            # SCP73 outdated requirement
             *(
                 (f"scrapy=={version}", issues)
                 for version, issues in (
@@ -312,7 +312,7 @@ CASES: Cases = (
                     ),
                 )
             ),
-            # Non-frozen versions should not trigger SCP14/SCP15/SCP47
+            # Non-frozen versions should not trigger SCP14/SCP15/SCP73
             *(
                 (requirements, ())
                 for requirements in (
@@ -322,7 +322,7 @@ CASES: Cases = (
                     "scrapy>=2.0.0,<3.0.0",  # Range specification
                 )
             ),
-            # Invalid versions should not trigger SCP14/SCP15/SCP47
+            # Invalid versions should not trigger SCP14/SCP15/SCP73
             ("scrapy==latest", ()),
             ("scrapy==1.0.0-beta.1.5", ()),
             ("scrapy==1.0.0-alpha..1", ()),
@@ -346,7 +346,7 @@ CASES: Cases = (
                 ),
             ),
             # Signs of SCP13, like editable installs (-e), should not prevent
-            # the reporting of SCP14/SCP15/SCP16/SCP47.
+            # the reporting of SCP14/SCP15/SCP16/SCP73.
             (
                 "\n".join(
                     [
