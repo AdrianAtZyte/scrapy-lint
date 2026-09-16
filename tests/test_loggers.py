@@ -6,7 +6,7 @@ from . import NO_ISSUE, Cases, ExpectedIssue, File, cases
 from .helpers import check_project
 
 PATH = "a.py"
-MESSAGE = "SCP47 non-spider logger"
+MESSAGE = "SCP70 non-spider logger"
 
 
 def spider(statement: str) -> str:
