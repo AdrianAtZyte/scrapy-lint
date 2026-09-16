@@ -292,6 +292,29 @@ CASES = [
                     "nonexistent/requirements.txt",
                 )
             ),
+            # SCP53 hardcoded secret
+            *(
+                (
+                    "\n".join([prefix, "apikeys:", "  default: 0bbf0941454848"]),
+                    (
+                        issue("SCP53 hardcoded secret: apikeys", line=lineno, column=0),
+                        *extra_issues,
+                    ),
+                )
+                for prefix, lineno, extra_issues in (
+                    (
+                        (
+                            f"stack: {LATEST_KNOWN_STACK}\n"
+                            "requirements:\n"
+                            "  file: requirements.txt"
+                        ),
+                        4,
+                        (MISSING_STACK_ISSUE,),
+                    ),
+                    # Custom image projects skip the remaining config checks.
+                    ("image: custom:latest", 2, ()),
+                )
+            ),
             # Multiple issues
             (
                 "\n".join(
@@ -518,7 +541,7 @@ CASES = [
         ),
         {"requirements_file": "requirements-dev.txt"},
     ),
-    # SCP47 Scrapy version mismatch
+    # SCP72 Scrapy version mismatch
     *(
         (
             (
@@ -547,7 +570,7 @@ CASES = [
                 LATEST_KNOWN_STACK,
                 "==2.11.2",
                 issue(
-                    "SCP47 Scrapy version mismatch: "
+                    "SCP72 Scrapy version mismatch: "
                     f"{LATEST_KNOWN_STACK} comes with Scrapy 2.12, not 2.11.2",
                     column=7,
                 ),
@@ -558,7 +581,7 @@ CASES = [
                 (
                     issue("SCP20 stack not frozen", column=7),
                     issue(
-                        "SCP47 Scrapy version mismatch: "
+                        "SCP72 Scrapy version mismatch: "
                         "scrapy:2.12 comes with Scrapy 2.12, not 2.11.2",
                         column=7,
                     ),
@@ -568,7 +591,7 @@ CASES = [
                 "scrapy:2.11-20241022",
                 "==2.13.0",
                 issue(
-                    "SCP47 Scrapy version mismatch: "
+                    "SCP72 Scrapy version mismatch: "
                     "scrapy:2.11-20241022 comes with Scrapy 2.11, not 2.13.0",
                     column=7,
                 ),
