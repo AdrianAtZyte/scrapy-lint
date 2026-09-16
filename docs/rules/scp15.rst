@@ -34,4 +34,4 @@ Instead use:
 
 .. code-block:: text
 
-    scrapy==2.17.0
+    scrapy==2.19.0

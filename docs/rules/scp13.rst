@@ -36,37 +36,46 @@ Use instead:
 
 .. code-block:: text
 
+    aiohappyeyeballs==2.7.1
+    aiohttp==3.14.3
+    aiosignal==1.4.0
     attrs==26.1.0
     automat==25.4.16
+    brotli==1.2.0
     certifi==2026.7.22
     cffi==2.1.1
-    charset-normalizer==3.4.9
+    charset-normalizer==3.5.1
     constantly==23.10.4
-    cryptography==50.0.0
+    cryptography==50.0.1
     cssselect==1.5.0
     defusedxml==0.7.1
-    filelock==3.32.2
+    filelock==3.32.7
+    frozenlist==1.8.0
     hyperlink==21.0.0
-    idna==3.18
+    idna==3.19
     incremental==24.11.0
     itemadapter==0.13.1
     itemloaders==1.4.0
     jmespath==1.1.0
-    lxml==6.1.1
+    lxml==6.1.3
+    multidict==6.8.0
     packaging==26.3
     parsel==1.11.0
+    platformdirs==4.11.8
+    propcache==0.5.4
     protego==0.6.2
     pycparser==3.0
     pydispatcher==2.0.7
     pyopenssl==26.4.0
-    queuelib==1.9.0
+    queuelib==1.10.0
     requests==2.34.2
     requests-file==3.0.1
-    scrapy==2.17.0
+    scrapy==2.19.0
     service-identity==26.1.0
-    tldextract==5.3.1
+    tldextract==5.3.2
     twisted==26.4.0
     typing-extensions==4.16.0
-    urllib3==2.7.0
+    urllib3==2.8.0
     w3lib==2.4.1
-    zope-interface==8.5
+    yarl==1.25.1
+    zope-interface==8.6
