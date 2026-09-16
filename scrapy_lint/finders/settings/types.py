@@ -394,6 +394,7 @@ PATH_SUPPORT_VERSIONS: dict[str, Version | UnknownUnsupportedVersion] = {
     "IMAGES_STORE": Version("2.9.0"),
     "JOBDIR": Version("2.8.0"),
     "LOG_FILE": UNKNOWN_UNSUPPORTED_VERSION,
+    "REMOTE_CONTROL_JOBS_DIR": Version("2.19.0"),
     "TEMPLATES_DIR": Version("2.8.0"),
 }
 
