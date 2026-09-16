@@ -1,55 +1,47 @@
 .. _scp48:
 
-==========================
-SCP48: Old selector getter
-==========================
+==================================
+SCP48: Deprecated spider attribute
+==================================
 
 What it does
 ============
 
-Finds calls to ``extract()`` on the result of
-:meth:`~scrapy.selector.SelectorList.css` or
-:meth:`~scrapy.selector.SelectorList.xpath`.
+Reports spider attributes that are deprecated for the Scrapy version frozen in
+your project requirements.
+
+It also reports the version in which the attribute was deprecated, and the
+setting to use instead.
 
 
 Why is this bad?
 ================
 
-:meth:`~scrapy.selector.SelectorList.getall` is the current name of that
-method, and the one that pairs with
-:meth:`~scrapy.selector.SelectorList.get`.
+Deprecated spider attributes will stop working in future versions of Scrapy.
+
+If you do not migrate now, the next time you upgrade Scrapy your project could
+break or misbehave.
 
 
-Example
-=======
+How to fix it?
+==============
 
-.. code-block:: python
-
-    import scrapy
-
-
-    class MySpider(scrapy.Spider):
-        name = "myspider"
-
-        def parse(self, response):
-            yield {"titles": response.css("h1::text").extract()}
-
-Use instead:
+Move the value to the matching setting, usually through
+:attr:`~scrapy.Spider.custom_settings`. For example, instead of:
 
 .. code-block:: python
 
-    import scrapy
+    class ToScrapeComSpider(Spider):
+        name = "toscrape_com"
+        download_timeout = 15
 
+Do:
 
-    class MySpider(scrapy.Spider):
-        name = "myspider"
+.. code-block:: python
 
-        def parse(self, response):
-            yield {"titles": response.css("h1::text").getall()}
+    class ToScrapeComSpider(Spider):
+        name = "toscrape_com"
+        custom_settings = {"DOWNLOAD_TIMEOUT": 15}
 
-
-Fix
-===
-
-This rule is automatically fixable with the ``--fix`` command-line option:
-``extract()`` is renamed to ``getall()``.
+Mind that a setting has a different scope than a spider attribute: code that
+reads the attribute from the spider object needs to read the setting instead.

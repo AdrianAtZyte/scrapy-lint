@@ -101,12 +101,12 @@ CASES: Cases = (
                     'response.css("*")[n].extract()',
                 )
             ),
-            # SCP48: old selector getter
+            # SCP68: old selector getter
             *(
                 (
                     code,
                     ExpectedIssue(
-                        message="SCP48 old selector getter",
+                        message="SCP68 old selector getter",
                         path=PATH,
                     ),
                 )
@@ -119,7 +119,7 @@ CASES: Cases = (
                     'response.css("*").extract()[n]',
                 )
             ),
-            # SCP48: old selector getter (no issue)
+            # SCP68: old selector getter (no issue)
             *(
                 (code, NO_ISSUE)
                 for code in (
@@ -127,12 +127,12 @@ CASES: Cases = (
                     'response.css("*").getall()',
                 )
             ),
-            # SCP49: absolute XPath in nested selector
+            # SCP69: absolute XPath in nested selector
             *(
                 (
                     code,
                     ExpectedIssue(
-                        message="SCP49 absolute XPath in nested selector",
+                        message="SCP69 absolute XPath in nested selector",
                         column=column,
                         path=PATH,
                     ),
@@ -143,7 +143,7 @@ CASES: Cases = (
                     ('response.css("div")[0].xpath("//a")', 29),
                 )
             ),
-            # SCP49: absolute XPath in nested selector (no issue)
+            # SCP69: absolute XPath in nested selector (no issue)
             *(
                 (code, NO_ISSUE)
                 for code in (

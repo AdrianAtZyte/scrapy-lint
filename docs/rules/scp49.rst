@@ -1,55 +1,27 @@
 .. _scp49:
 
-========================================
-SCP49: Absolute XPath in nested selector
-========================================
+========================
+SCP49: Deprecated import
+========================
 
 What it does
 ============
 
-Finds XPath expressions that start with ``/`` in a
-:meth:`~scrapy.selector.SelectorList.xpath` call made on the result of a
-:meth:`~scrapy.selector.SelectorList.css` or
-:meth:`~scrapy.selector.SelectorList.xpath` call.
+Reports imports of modules and objects that are deprecated for the package
+versions frozen in your project requirements.
 
-Selectors stored in a variable, such as the target of a ``for`` loop, are not
-reported, since there is no way to tell whether they are nested selectors or
-root ones.
+It also reports the package and version in which the import was deprecated, so
+that you can check the corresponding release notes for sunset guidance.
+
+Sometimes sunset guidance is also provided in the error message.
 
 
 Why is this bad?
 ================
 
-An XPath expression that starts with ``/``, including one that starts with
-``//``, is evaluated from the root of the document, so it ignores the selector
-it is called on and matches nodes anywhere in the document.
+Deprecated imports will stop working in future versions of the corresponding
+package.
 
-See :ref:`topics-selectors-relative-xpaths` in the Scrapy documentation.
-
-
-Example
-=======
-
-.. code-block:: python
-
-    import scrapy
-
-
-    class MySpider(scrapy.Spider):
-        name = "myspider"
-
-        def parse(self, response):
-            yield {"links": response.css("article").xpath("//a/@href").getall()}
-
-Use instead:
-
-.. code-block:: python
-
-    import scrapy
-
-
-    class MySpider(scrapy.Spider):
-        name = "myspider"
-
-        def parse(self, response):
-            yield {"links": response.css("article").xpath(".//a/@href").getall()}
+If you do not follow sunset guidance now to migrate or remove the deprecated
+import, the next time you upgrade the corresponding package your project could
+break.
