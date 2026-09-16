@@ -1,19 +1,73 @@
 from __future__ import annotations
 
-from ast import Attribute, Call, ImportFrom, Name
+from ast import (
+    AsyncFunctionDef,
+    Attribute,
+    Call,
+    ClassDef,
+    FunctionDef,
+    ImportFrom,
+    Name,
+)
 from typing import TYPE_CHECKING
 
+from packaging.version import Version
+
+from scrapy_lint.data.methods import DEPRECATED_ARGUMENTS
 from scrapy_lint.finders.unsupported import (
     VALID_REQUEST_IMPORT_PATHS,
     import_path_from_attribute,
 )
-from scrapy_lint.issues import DEPRECATED_METHOD, Issue, Pos
+from scrapy_lint.issues import DEPRECATED_ARGUMENT, DEPRECATED_METHOD, Issue, Pos
 
 if TYPE_CHECKING:
-    from ast import AST, expr
+    from ast import AST, arg, arguments, expr
     from collections.abc import Generator
 
+    from scrapy_lint.context import Context
+
 FROM_RESPONSE_DETAIL = "deprecated in scrapy 2.16.0; use form2request instead"
+
+
+def iter_required_args(args: arguments) -> Generator[arg]:
+    positional = args.posonlyargs + args.args
+    if args.defaults:
+        positional = positional[: -len(args.defaults)]
+    yield from positional
+    for keyword, default in zip(args.kwonlyargs, args.kw_defaults, strict=True):
+        if default is None:
+            yield keyword
+
+
+class DeprecatedArgumentIssueFinder:  # pylint: disable=too-few-public-methods
+    def __init__(self, context: Context) -> None:
+        self.project = context.project
+
+    def __call__(self, node: AST) -> Generator[Issue]:
+        assert isinstance(node, ClassDef)
+        version = self.project.frozen_requirements.get("scrapy")
+        if version is None:
+            return
+        for child in node.body:
+            if not isinstance(child, (AsyncFunctionDef, FunctionDef)):
+                continue
+            deprecated_arguments = DEPRECATED_ARGUMENTS.get(child.name)
+            if not deprecated_arguments:
+                continue
+            for argument in iter_required_args(child.args):
+                versioning = deprecated_arguments.get(argument.arg)
+                if versioning is None:
+                    continue
+                deprecated_in = versioning.deprecated_in
+                assert isinstance(deprecated_in, Version)
+                if version < deprecated_in:
+                    continue
+                yield Issue(
+                    DEPRECATED_ARGUMENT,
+                    Pos.from_node(argument),
+                    f"deprecated in scrapy {deprecated_in}; "
+                    f"{versioning.sunset_guidance}",
+                )
 
 
 class DeprecatedMethodIssueFinder:
