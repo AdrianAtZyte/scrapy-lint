@@ -460,16 +460,20 @@ CASES: Cases = (
             ),
             (
                 ("scrapy==2.12.0",),
-                "from scrapy_zyte_api import Addon as ScrapyZyteApiAddon\n"
-                ""
-                "ADDONS = {ScrapyZyteApiAddon: 500}",
+                (
+                    "from scrapy_zyte_api import Addon as ScrapyZyteApiAddon\n"
+                    ""
+                    "ADDONS = {ScrapyZyteApiAddon: 500}"
+                ),
                 NO_ISSUE,
             ),
             (
                 ("scrapy==2.12.0",),
-                "from scrapy_zyte_api.addon import Addon as ScrapyZyteApiAddon\n"
-                ""
-                "ADDONS = {ScrapyZyteApiAddon: 500}",
+                (
+                    "from scrapy_zyte_api.addon import Addon as ScrapyZyteApiAddon\n"
+                    ""
+                    "ADDONS = {ScrapyZyteApiAddon: 500}"
+                ),
                 NO_ISSUE,
             ),
             (
@@ -479,9 +483,11 @@ CASES: Cases = (
             ),
             (
                 ("scrapy==2.12.0",),
-                "import scrapy_zyte_api.addon\n"
-                ""
-                "ADDONS = {scrapy_zyte_api.addon.Addon: 500}",
+                (
+                    "import scrapy_zyte_api.addon\n"
+                    ""
+                    "ADDONS = {scrapy_zyte_api.addon.Addon: 500}"
+                ),
                 NO_ISSUE,
             ),
             (
@@ -766,7 +772,7 @@ CASES: Cases = (
             "known-settings": ["SETTING"],
         },
     ),
-    # SCP47 missing add-on
+    # SCP71 missing add-on
     *(
         (
             (
@@ -789,7 +795,7 @@ CASES: Cases = (
                 ("scrapy==2.13.0", "scrapy-poet==0.26.0"),
                 "",
                 ExpectedIssue(
-                    "SCP47 missing add-on: scrapy_poet.Addon",
+                    "SCP71 missing add-on: scrapy_poet.Addon",
                     path="a.py",
                 ),
             ),
@@ -829,23 +835,21 @@ CASES: Cases = (
                 ("scrapy==2.13.0", "scrapy-poet"),
                 "",
                 ExpectedIssue(
-                    "SCP47 missing add-on: scrapy_poet.Addon",
+                    "SCP71 missing add-on: scrapy_poet.Addon",
                     path="a.py",
                 ),
             ),
             # Any known import path of an add-on counts as configuring it.
             (
                 ("scrapy==2.13.0", "scrapy-zyte-api==0.17.0"),
-                "import scrapy_zyte_api.addon\n"
-                ""
-                "ADDONS = {scrapy_zyte_api.addon.Addon: 500}",
+                "import scrapy_zyte_api.addon\nADDONS = {scrapy_zyte_api.addon.Addon: 500}",
                 NO_ISSUE,
             ),
             (
                 ("scrapy==2.13.0", "duplicate-url-discarder==0.3.0"),
                 "",
                 ExpectedIssue(
-                    "SCP47 missing add-on: duplicate_url_discarder.Addon",
+                    "SCP71 missing add-on: duplicate_url_discarder.Addon",
                     path="a.py",
                 ),
             ),
@@ -853,7 +857,7 @@ CASES: Cases = (
                 ("scrapy==2.13.0", "zyte-spider-templates==0.12.0"),
                 "",
                 ExpectedIssue(
-                    "SCP47 missing add-on: zyte_spider_templates.Addon",
+                    "SCP71 missing add-on: zyte_spider_templates.Addon",
                     path="a.py",
                 ),
             ),
