@@ -8,6 +8,7 @@ from ruamel.yaml.error import YAMLError
 
 from scrapy_lint.context import _find_image
 from scrapy_lint.issues import (
+    HARDCODED_SECRET,
     INVALID_SCRAPINGHUB_YML,
     NO_ROOT_REQUIREMENTS,
     NO_ROOT_STACK,
@@ -42,6 +43,9 @@ class ZyteCloudConfigIssueFinder:
             detail = "non-mapping root data structure"
             yield Issue(INVALID_SCRAPINGHUB_YML, detail=detail)
             return
+        if "apikeys" in data:
+            pos = self._get_key_position(data, "apikeys")
+            yield Issue(HARDCODED_SECRET, pos, "apikeys")
         # Scrapy Cloud ignores the stack and requirements keys of projects
         # deployed as a custom image, only their validity still matters.
         image = bool(_find_image(data))
