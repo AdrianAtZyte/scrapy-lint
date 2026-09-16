@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from tests.helpers import check_project
 
-from . import NO_ISSUE, Cases, ExpectedIssue, File, cases, iter_issues
+from . import (
+    NO_ISSUE,
+    Cases,
+    ExpectedIssue,
+    File,
+    cases,
+    insecure_scrapy_issues,
+    iter_issues,
+)
 
 PATH = "a.py"
 CASES: Cases = (
@@ -18,6 +26,7 @@ CASES: Cases = (
                     "SCP13 incomplete requirements freeze",
                     path="requirements.txt",
                 ),
+                *insecure_scrapy_issues(requirements),
                 *iter_issues(issues),  # type: ignore[arg-type]
             ),
             {},
