@@ -7,9 +7,12 @@ from scrapy_lint.settings import (
     Setting,
     SettingType,
     VersionedValue,
+)
+from scrapy_lint.versions import (
+    UNKNOWN_FUTURE_VERSION,
+    UNKNOWN_UNSUPPORTED_VERSION,
     Versioning,
 )
-from scrapy_lint.versions import UNKNOWN_FUTURE_VERSION, UNKNOWN_UNSUPPORTED_VERSION
 
 PREDEFINED_SUGGESTIONS = {
     # NOTE: Somewhat arbitrary for the sake of having a few suggestions to
@@ -115,19 +118,11 @@ SETTINGS = {
         type=SettingType.INT,
         default_value=VersionedValue(8),
     ),
-    "CONCURRENT_REQUESTS_PER_IP": Setting(
-        type=SettingType.INT,
-        default_value=VersionedValue(0),
-    ),
     "COOKIES_DEBUG": Setting(
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
     ),
     "COOKIES_ENABLED": Setting(
-        type=SettingType.BOOL,
-        default_value=VersionedValue(True),
-    ),
-    "CRAWLSPIDER_FOLLOW_LINKS": Setting(
         type=SettingType.BOOL,
         default_value=VersionedValue(True),
     ),
@@ -175,6 +170,11 @@ SETTINGS = {
         default_value=VersionedValue(60),
         is_pre_crawler=True,
     ),
+    "DOWNLOAD_BIND_ADDRESS": Setting(
+        type=SettingType.BIND_ADDRESS,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("2.15.0")),
+    ),
     "DOWNLOAD_DELAY": Setting(type=SettingType.FLOAT, default_value=VersionedValue(0)),
     "DOWNLOAD_FAIL_ON_DATALOSS": Setting(
         type=SettingType.BOOL,
@@ -204,9 +204,26 @@ SETTINGS = {
         type=SettingType.FLOAT,
         default_value=VersionedValue(180),
     ),
+    "DOWNLOAD_TLS_MAX_VERSION": Setting(
+        type=SettingType.ENUM_STR,
+        values=(None, "TLSv1.0", "TLSv1.1", "TLSv1.2", "TLSv1.3"),
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("2.17.0")),
+    ),
+    "DOWNLOAD_TLS_MIN_VERSION": Setting(
+        type=SettingType.ENUM_STR,
+        values=(None, "TLSv1.0", "TLSv1.1", "TLSv1.2", "TLSv1.3"),
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("2.17.0")),
+    ),
     "DOWNLOAD_WARNSIZE": Setting(
         type=SettingType.INT,
         default_value=VersionedValue(32 * 1024 * 1024),
+    ),
+    "DOWNLOAD_VERIFY_CERTIFICATES": Setting(
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("2.15.0")),
     ),
     "DOWNLOADER": Setting(
         type=SettingType.OBJ,
@@ -424,6 +441,7 @@ SETTINGS = {
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
         is_pre_crawler=True,
+        versioning=Versioning(added_in=Version("2.14.0")),
     ),
     "FTP_PASSIVE_MODE": Setting(
         type=SettingType.BOOL,
@@ -432,6 +450,7 @@ SETTINGS = {
     "FTP_PASSWORD": Setting(
         type=SettingType.OPT_STR,
         default_value=VersionedValue("guest"),
+        is_secret=True,
     ),
     "FTP_USER": Setting(
         type=SettingType.OPT_STR,
@@ -441,6 +460,21 @@ SETTINGS = {
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
         versioning=Versioning(added_in=Version("2.3.0")),
+    ),
+    "HTTPAUTH_DOMAIN": Setting(
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("2.17.0")),
+    ),
+    "HTTPAUTH_PASS": Setting(
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(""),
+        versioning=Versioning(added_in=Version("2.17.0")),
+    ),
+    "HTTPAUTH_USER": Setting(
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(""),
+        versioning=Versioning(added_in=Version("2.17.0")),
     ),
     "HTTPCACHE_ALWAYS_STORE": Setting(
         type=SettingType.BOOL,
@@ -499,6 +533,11 @@ SETTINGS = {
     "HTTPPROXY_ENABLED": Setting(
         type=SettingType.BOOL,
         default_value=VersionedValue(True),
+    ),
+    "HTTPX_HTTP2_ENABLED": Setting(
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("2.17.0")),
     ),
     "IMAGES_STORE_GCS_ACL": Setting(
         type=SettingType.OPT_STR,
@@ -582,7 +621,9 @@ SETTINGS = {
         type=SettingType.OPT_STR,
         default_value=VersionedValue("localhost"),
     ),
-    "MAIL_PASS": Setting(type=SettingType.OPT_STR, default_value=VersionedValue(None)),
+    "MAIL_PASS": Setting(
+        type=SettingType.OPT_STR, default_value=VersionedValue(None), is_secret=True
+    ),
     "MAIL_PORT": Setting(type=SettingType.OPT_STR, default_value=VersionedValue(25)),
     "MAIL_USER": Setting(type=SettingType.OPT_STR, default_value=VersionedValue(None)),
     "MEMDEBUG_ENABLED": Setting(
@@ -599,10 +640,6 @@ SETTINGS = {
         default_value=VersionedValue(True),
     ),
     "MEMUSAGE_LIMIT_MB": Setting(type=SettingType.INT, default_value=VersionedValue(0)),
-    "MEMUSAGE_NOTIFY_MAIL": Setting(
-        type=SettingType.LIST,
-        default_value=VersionedValue([]),
-    ),
     "MEMUSAGE_WARNING_MB": Setting(
         type=SettingType.INT,
         default_value=VersionedValue(0),
@@ -666,6 +703,11 @@ SETTINGS = {
             "scrapy.spidermiddlewares.referer.DefaultReferrerPolicy",
         ),
     ),
+    "REFERRER_POLICIES": Setting(
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("2.15.0")),
+    ),
     "REQUEST_FINGERPRINTER_CLASS": Setting(
         type=SettingType.OBJ,
         default_value=VersionedValue("scrapy.utils.request.RequestFingerprinter"),
@@ -692,6 +734,11 @@ SETTINGS = {
             ],
         ),
         versioning=Versioning(added_in=Version("2.10.0")),
+    ),
+    "RETRY_GIVE_UP_LOG_LEVEL": Setting(
+        type=SettingType.LOG_LEVEL,
+        default_value=VersionedValue("ERROR"),
+        versioning=Versioning(added_in=Version("2.17.0")),
     ),
     "RETRY_HTTP_CODES": Setting(
         type=SettingType.LIST,
@@ -836,6 +883,7 @@ SETTINGS = {
     "TELNETCONSOLE_PASSWORD": Setting(
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        is_secret=True,
     ),
     "TELNETCONSOLE_PORT": Setting(
         type=SettingType.LIST,
@@ -849,6 +897,18 @@ SETTINGS = {
         type=SettingType.OPT_PATH,
         # Default set as unknown because it can vary by system.
         default_value=UNKNOWN_SETTING_VALUE,
+    ),
+    "TWISTED_DNS_RESOLVER": Setting(
+        type=SettingType.OBJ,
+        default_value=VersionedValue("scrapy.resolver.CachingThreadedResolver"),
+        is_pre_crawler=True,
+        versioning=Versioning(added_in=Version("2.15.0")),
+    ),
+    "TWISTED_REACTOR_ENABLED": Setting(
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        is_pre_crawler=True,
+        versioning=Versioning(added_in=Version("2.15.0")),
     ),
     "TWISTED_REACTOR": Setting(
         type=SettingType.OPT_OBJ,
@@ -894,10 +954,12 @@ SETTINGS = {
     "AWS_SECRET_ACCESS_KEY": Setting(
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        is_secret=True,
     ),
     "AWS_SESSION_TOKEN": Setting(
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        is_secret=True,
     ),
     "AWS_USE_SSL": Setting(type=SettingType.BOOL, default_value=VersionedValue(False)),
     "AWS_VERIFY": Setting(type=SettingType.BOOL, default_value=VersionedValue(False)),
@@ -964,6 +1026,32 @@ SETTINGS = {
         default_value=VersionedValue(False),
     ),
     # Deprecated Scrapy built-in settings, in reverse deprecation order.
+    "CRAWLSPIDER_FOLLOW_LINKS": Setting(
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(
+            deprecated_in=Version("2.17.0"),
+            sunset_guidance="set follow=False in your rules instead",
+        ),
+    ),
+    "MEMUSAGE_NOTIFY_MAIL": Setting(
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(
+            deprecated_in=Version("2.15.0"),
+            sunset_guidance=(
+                "use the memusage_warning_reached and spider_closed signals instead"
+            ),
+        ),
+    ),
+    "CONCURRENT_REQUESTS_PER_IP": Setting(
+        type=SettingType.INT,
+        default_value=VersionedValue(0),
+        versioning=Versioning(
+            deprecated_in=Version("2.14.0"),
+            sunset_guidance="use CONCURRENT_REQUESTS_PER_DOMAIN instead",
+        ),
+    ),
     "FEED_FORMAT": Setting(
         type=SettingType.STR,
         default_value=VersionedValue("jsonlines"),
@@ -1043,10 +1131,12 @@ SETTINGS = {
     ),
     # scrapy-azure-exporter plugin settings, in order of appearance
     # in https://github.com/scrapy-plugins/scrapy-feedexporter-azure-storage
-    "AZURE_CONNECTION_STRING": Setting(package="scrapy-azure-exporter"),
-    "AZURE_ACCOUNT_URL_WITH_SAS_TOKEN": Setting(package="scrapy-azure-exporter"),
+    "AZURE_CONNECTION_STRING": Setting(package="scrapy-azure-exporter", is_secret=True),
+    "AZURE_ACCOUNT_URL_WITH_SAS_TOKEN": Setting(
+        package="scrapy-azure-exporter", is_secret=True
+    ),
     "AZURE_ACCOUNT_URL": Setting(package="scrapy-azure-exporter"),
-    "AZURE_ACCOUNT_KEY": Setting(package="scrapy-azure-exporter"),
+    "AZURE_ACCOUNT_KEY": Setting(package="scrapy-azure-exporter", is_secret=True),
     # scrapy-deltafetch plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-deltafetch#usage
     "DELTAFETCH_ENABLED": Setting(package="scrapy-deltafetch", type=SettingType.BOOL),
@@ -1054,7 +1144,7 @@ SETTINGS = {
     "DELTAFETCH_RESET": Setting(package="scrapy-deltafetch"),
     # scrapy-feedexporter-dropbox plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-feedexporter-dropbox
-    "DROPBOX_API_TOKEN": Setting(package="scrapy-feedexporter-dropbox"),
+    "DROPBOX_API_TOKEN": Setting(package="scrapy-feedexporter-dropbox", is_secret=True),
     # scrapy-frontera plugin settings, in order of appearance in
     # https://github.com/scrapinghub/scrapy-frontera#usage-and-features
     "FRONTERA_SCHEDULER_START_REQUESTS_TO_FRONTIER": Setting(package="scrapy-frontera"),
@@ -1068,10 +1158,13 @@ SETTINGS = {
     # in https://github.com/scrapy-plugins/scrapy-feedexporter-google-drive
     "GDRIVE_SERVICE_ACCOUNT_CREDENTIALS_JSON": Setting(
         package="scrapy-feedexporter-google-drive",
+        is_secret=True,
     ),
     # scrapy-feedexporter-google-sheets plugin settings, in order of appearance
     # in https://github.com/scrapy-plugins/scrapy-feedexporter-google-sheets
-    "GOOGLE_CREDENTIALS": Setting(package="scrapy-feedexporter-google-sheets"),
+    "GOOGLE_CREDENTIALS": Setting(
+        package="scrapy-feedexporter-google-sheets", is_secret=True
+    ),
     # scrapy-fieldstats plugin settings, in order of appearance in
     # https://github.com/stummjr/scrapy-fieldstats
     "FIELDSTATS_ENABLED": Setting(
@@ -1099,7 +1192,7 @@ SETTINGS = {
     "HCF_CONSUMER_MAX_REQUESTS": Setting(package="hcf-backend"),
     "HCF_CONSUMER_MAX_BATCHES": Setting(package="hcf-backend"),
     "MAX_NEXT_REQUESTS": Setting(package="hcf-backend"),
-    "HCF_AUTH": Setting(package="hcf-backend"),
+    "HCF_AUTH": Setting(package="hcf-backend", is_secret=True),
     "HCF_PROJECT_ID": Setting(package="hcf-backend"),
     "HCF_PRODUCER_FRONTIER": Setting(package="hcf-backend"),
     "HCF_PRODUCER_SLOT_PREFIX": Setting(package="hcf-backend"),
@@ -1111,13 +1204,15 @@ SETTINGS = {
     "HCF_CONSUMER_DELETE_BATCHES_ON_STOP": Setting(package="hcf-backend"),
     # scrapy-incremental plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-incremental
-    "SCRAPYCLOUD_API_KEY": Setting(package="scrapy-incremental"),
+    "SCRAPYCLOUD_API_KEY": Setting(package="scrapy-incremental", is_secret=True),
     "SCRAPYCLOUD_PROJECT_ID": Setting(package="scrapy-incremental"),
     "INCREMENTAL_PIPELINE_ITEM_UNIQUE_FIELD": Setting(package="scrapy-incremental"),
     "INCREMENTAL_PIPELINE_BATCH_SIZE": Setting(package="scrapy-incremental"),
     # scrapy-feedexporter-onedrive plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-feedexporter-onedrive
-    "ONEDRIVE_ACCESS_TOKEN": Setting(package="scrapy-feedexporter-onedrive"),
+    "ONEDRIVE_ACCESS_TOKEN": Setting(
+        package="scrapy-feedexporter-onedrive", is_secret=True
+    ),
     # scrapy-playwright plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-playwright#supported-settings
     "PLAYWRIGHT_BROWSER_TYPE": Setting(package="scrapy-playwright"),
@@ -1187,7 +1282,9 @@ SETTINGS = {
     ),
     # scrapy-feedexporter-sftp plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-feedexporter-sftp
-    "FEED_STORAGE_SFTP_PKEY": Setting(package="scrapy-feedexporter-sftp"),
+    "FEED_STORAGE_SFTP_PKEY": Setting(
+        package="scrapy-feedexporter-sftp", is_secret=True
+    ),
     # spidermon plugin settings, in order of appearance in the docs:
     # https://spidermon.readthedocs.io/en/latest/settings.html
     "SPIDERMON_ENABLED": Setting(package="spidermon", type=SettingType.BOOL),
@@ -1393,6 +1490,7 @@ SETTINGS = {
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        is_secret=True,
     ),
     "SPIDERMON_AWS_ACCESS_KEY_ID": Setting(
         package="spidermon",
@@ -1401,6 +1499,7 @@ SETTINGS = {
     "SPIDERMON_AWS_SECRET_ACCESS_KEY": Setting(
         package="spidermon",
         type=SettingType.STR,
+        is_secret=True,
     ),
     "SPIDERMON_AWS_REGION_NAME": Setting(
         package="spidermon",
@@ -1431,6 +1530,7 @@ SETTINGS = {
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        is_secret=True,
     ),
     "SPIDERMON_SMTP_ENFORCE_TLS": Setting(
         package="spidermon",
@@ -1455,6 +1555,7 @@ SETTINGS = {
     "SPIDERMON_SLACK_SENDER_TOKEN": Setting(
         package="spidermon",
         type=SettingType.STR,
+        is_secret=True,
     ),
     "SPIDERMON_SLACK_ATTACHMENTS": Setting(
         package="spidermon",
@@ -1520,6 +1621,7 @@ SETTINGS = {
     "SPIDERMON_TELEGRAM_SENDER_TOKEN": Setting(
         package="spidermon",
         type=SettingType.STR,
+        is_secret=True,
     ),
     "SPIDERMON_TELEGRAM_FAKE": Setting(
         package="spidermon",
@@ -1540,6 +1642,7 @@ SETTINGS = {
     "SPIDERMON_DISCORD_WEBHOOK_URL": Setting(
         package="spidermon",
         type=SettingType.STR,
+        is_secret=True,
     ),
     "SPIDERMON_DISCORD_FAKE": Setting(
         package="spidermon",
@@ -1609,6 +1712,7 @@ SETTINGS = {
     "SPIDERMON_SENTRY_DSN": Setting(
         package="spidermon",
         type=SettingType.STR,
+        is_secret=True,
     ),
     "SPIDERMON_SENTRY_PROJECT_NAME": Setting(
         package="spidermon",
@@ -1655,7 +1759,7 @@ SETTINGS = {
     "ZYTE_API_FALLBACK_HTTP_HANDLER": Setting(package="scrapy-zyte-api"),
     "ZYTE_API_FALLBACK_HTTPS_HANDLER": Setting(package="scrapy-zyte-api"),
     "ZYTE_API_FALLBACK_REQUEST_FINGERPRINTER_CLASS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_KEY": Setting(package="scrapy-zyte-api"),
+    "ZYTE_API_KEY": Setting(package="scrapy-zyte-api", is_secret=True),
     "ZYTE_API_LOG_REQUESTS": Setting(package="scrapy-zyte-api"),
     "ZYTE_API_LOG_REQUESTS_TRUNCATE": Setting(package="scrapy-zyte-api"),
     "ZYTE_API_MAX_COOKIES": Setting(package="scrapy-zyte-api"),
@@ -1689,7 +1793,7 @@ SETTINGS = {
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
     ),
-    "ZYTE_SMARTPROXY_APIKEY": Setting(package="scrapy-zyte-smartproxy"),
+    "ZYTE_SMARTPROXY_APIKEY": Setting(package="scrapy-zyte-smartproxy", is_secret=True),
     "ZYTE_SMARTPROXY_URL": Setting(package="scrapy-zyte-smartproxy"),
     "ZYTE_SMARTPROXY_MAXBANS": Setting(package="scrapy-zyte-smartproxy"),
     "ZYTE_SMARTPROXY_DOWNLOAD_TIMEOUT": Setting(package="scrapy-zyte-smartproxy"),
