@@ -116,9 +116,7 @@ class APIIssueFinder:
             is_literal and value in api.deprecated_values
         )
 
-    def build_fix(self, api: API, kw: keyword) -> Fix | None:
-        if not api.droppable:
-            return None
+    def build_fix(self, api: API, kw: keyword) -> Fix:
         edit = keyword_removal_edit(self.source, kw)
         return Fix([edit], message=f"remove the {api.name} argument")
 

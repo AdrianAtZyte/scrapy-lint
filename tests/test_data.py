@@ -46,8 +46,6 @@ def test_api_versions():
             assert deprecated_in < removed_in
         if isinstance(api.discouraged_in, Version):
             assert api.discouraged_in < deprecated_in
-        # Dropping a parameter is only a fix once it no longer exists.
-        assert not api.droppable or removed_in
 
 
 def test_default_value_history():

@@ -13,7 +13,6 @@ API_PARAMETERS = (
             sunset_guidance="use binary=False",
         ),
         deprecated_values=(True,),
-        droppable=True,
     ),
 )
 

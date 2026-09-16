@@ -26,8 +26,7 @@ class API:
     APIs that should be avoided in every supported version.
 
     Where only some values of a parameter are deprecated, list them in
-    *deprecated_values*. Set *droppable* if removing a parameter is the right
-    way to fix code that passes it once it is gone.
+    *deprecated_values*.
     """
 
     path: str
@@ -35,5 +34,4 @@ class API:
     versioning: Versioning = field(default_factory=Versioning)
     discouraged_in: Version | UnknownUnsupportedVersion | None = None
     deprecated_values: tuple[Any, ...] | None = None
-    droppable: bool = False
     package: str = "scrapy"
