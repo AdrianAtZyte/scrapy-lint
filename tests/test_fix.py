@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import ast
+from inspect import cleandoc
 
 import pytest
 
 from scrapy_lint.finders.domains import UrlInAllowedDomainsIssueFinder
+from scrapy_lint.finders.spiders import UnneededStartIssueFinder
 from scrapy_lint.fixes import Edit, apply_edits
 from scrapy_lint.issues import Pos
 
@@ -84,6 +86,222 @@ CASES = (
         "allowed_domains = ['http://ex\\'ample.com/']\n",
         0,
     ),
+    # SCP54: a start method becomes start_urls, keeping the quote style.
+    (
+        """
+        class MySpider(Spider):
+            name = "my"
+
+            async def start(self):
+                yield Request('https://a.example/', dont_filter=True)
+                yield Request("https://b.example/", dont_filter=True)
+        """,
+        """
+        class MySpider(Spider):
+            name = "my"
+
+            start_urls = ['https://a.example/', "https://b.example/"]
+        """,
+        1,
+    ),
+    # URLs that do not fit in a single line get one line each.
+    (
+        """
+        class MySpider(Spider):
+            async def start(self):
+                for url in ["https://a.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]:
+                    yield Request(url, dont_filter=True)
+        """,
+        """
+        class MySpider(Spider):
+            start_urls = [
+                "https://a.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ]
+        """,
+        1,
+    ),
+    # A method that only re-sends start_urls is removed, blank lines included.
+    (
+        """
+        class MySpider(Spider):
+            name = "my"
+            start_urls = ["https://toscrape.com/"]
+
+            async def start(self):
+                for url in self.start_urls:
+                    yield Request(url, dont_filter=True)
+        """,
+        """
+        class MySpider(Spider):
+            name = "my"
+            start_urls = ["https://toscrape.com/"]
+        """,
+        1,
+    ),
+    # Removing the first statement of a class body does not leave a blank line.
+    (
+        """
+        class MySpider(Spider):
+            async def start(self):
+                for url in self.start_urls:
+                    yield Request(url, dont_filter=True)
+
+            def parse(self, response): ...
+        """,
+        """
+        class MySpider(Spider):
+            def parse(self, response): ...
+        """,
+        1,
+    ),
+    # Removing the only statement of a class body would break it.
+    (
+        """
+        class MySpider(Spider):
+            async def start(self):
+                for url in self.start_urls:
+                    yield Request(url, dont_filter=True)
+        """,
+        """
+        class MySpider(Spider):
+            async def start(self):
+                for url in self.start_urls:
+                    yield Request(url, dont_filter=True)
+        """,
+        0,
+    ),
+    # Without dont_filter the rewrite would enable duplicate filtering.
+    (
+        """
+        class MySpider(Spider):
+            name = "my"
+
+            async def start(self):
+                yield Request("https://toscrape.com/")
+        """,
+        """
+        class MySpider(Spider):
+            name = "my"
+
+            async def start(self):
+                yield Request("https://toscrape.com/")
+        """,
+        0,
+    ),
+    # A start_urls attribute leaves no room for the rewrite.
+    (
+        """
+        class MySpider(Spider):
+            start_urls: list[str] = ["https://a.example/"]
+
+            async def start(self):
+                yield Request("https://b.example/", dont_filter=True)
+        """,
+        """
+        class MySpider(Spider):
+            start_urls: list[str] = ["https://a.example/"]
+
+            async def start(self):
+                yield Request("https://b.example/", dont_filter=True)
+        """,
+        0,
+    ),
+    # A prefixed string literal is reported but not rewritten.
+    (
+        """
+        class MySpider(Spider):
+            name = "my"
+
+            async def start(self):
+                yield Request(r"https://toscrape.com/", dont_filter=True)
+        """,
+        """
+        class MySpider(Spider):
+            name = "my"
+
+            async def start(self):
+                yield Request(r"https://toscrape.com/", dont_filter=True)
+        """,
+        0,
+    ),
+    # SCP58: a documentation comment becomes a docstring below the field.
+    (
+        """
+        class ProductItem(scrapy.Item):
+            #: Product name.
+            name = scrapy.Field()
+        """,
+        """
+        class ProductItem(scrapy.Item):
+            name = scrapy.Field()
+            \"\"\"Product name.\"\"\"
+        """,
+        1,
+    ),
+    # Each line of a multi-line block becomes a line of the docstring.
+    (
+        """
+        @dataclass
+        class Product:
+            #: Product name,
+            #: as advertised.
+            name: str
+        """,
+        """
+        @dataclass
+        class Product:
+            name: str
+            \"\"\"Product name,
+            as advertised.\"\"\"
+        """,
+        1,
+    ),
+    # A field whose value spans several lines keeps its layout.
+    (
+        """
+        class ProductItem(scrapy.Item):
+            #: Product name.
+            name = scrapy.Field(
+                serializer=str,
+            )
+        """,
+        """
+        class ProductItem(scrapy.Item):
+            name = scrapy.Field(
+                serializer=str,
+            )
+            \"\"\"Product name.\"\"\"
+        """,
+        1,
+    ),
+    # A trailing documentation comment is reported but not rewritten.
+    (
+        "class ProductItem(scrapy.Item):\n    name = scrapy.Field()  #: Product name.\n",
+        "class ProductItem(scrapy.Item):\n    name = scrapy.Field()  #: Product name.\n",
+        0,
+    ),
+    # A field that already has a docstring is reported but not rewritten.
+    (
+        """
+        class ProductItem(scrapy.Item):
+            #: Product name.
+            name = scrapy.Field()
+            \"\"\"Product name.\"\"\"
+        """,
+        """
+        class ProductItem(scrapy.Item):
+            #: Product name.
+            name = scrapy.Field()
+            \"\"\"Product name.\"\"\"
+        """,
+        0,
+    ),
+    # Comment text that cannot be quoted as a docstring blocks the rewrite.
+    (
+        'class ProductItem(scrapy.Item):\n    #: Name, e.g. "Chair"\n    name = scrapy.Field()\n',
+        'class ProductItem(scrapy.Item):\n    #: Name, e.g. "Chair"\n    name = scrapy.Field()\n',
+        0,
+    ),
 )
 
 
@@ -121,3 +339,20 @@ def test_build_fix_without_source():
     assert isinstance(elt, ast.Constant)
     assert isinstance(elt.value, str)
     assert finder.build_fix(elt, elt.value) is None
+
+
+def test_build_start_fix_without_source():
+    source = cleandoc(
+        """
+        class MySpider(Spider):
+            name = "my"
+
+            async def start(self):
+                yield Request("https://toscrape.com/", dont_filter=True)
+        """,
+    )
+    node = ast.parse(source).body[0]
+    assert isinstance(node, ast.ClassDef)
+    issues = list(UnneededStartIssueFinder()(node))
+    assert len(issues) == 1
+    assert issues[0].fix is None
