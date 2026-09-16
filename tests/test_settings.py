@@ -353,7 +353,7 @@ CASES: Cases = (
                         (
                             "DOWNLOADER_MIDDLEWARES",
                             "DOWNLOAD_HANDLERS",
-                            "DOWNLOAD_DELAY",
+                            "DOWNLOAD_BIND_ADDRESS",
                         ),
                     ),
                     (

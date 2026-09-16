@@ -12,6 +12,7 @@ from packaging.version import Version
 from scrapy_lint.ast import is_dict, iter_dict
 from scrapy_lint.issues import (
     INVALID_SETTING_VALUE,
+    UNIMPORTABLE_COMPONENT,
     UNNEEDED_IMPORT_PATH,
     UNNEEDED_PATH_STRING,
     UNSUPPORTED_PATH_OBJECT,
@@ -25,10 +26,21 @@ if TYPE_CHECKING:
     from scrapy_lint.context import Project
 
 
-def check_import_path_need(
+def check_component_path(
     node: Constant,
     project: Project,
     allowed: set[str] | None = None,
+) -> Generator[Issue]:
+    assert isinstance(node.value, str)
+    yield from check_import_path_need(node, project, allowed)
+    if project.is_missing_import_path(node.value):
+        yield Issue(UNIMPORTABLE_COMPONENT, Pos.from_node(node))
+
+
+def check_import_path_need(
+    node: Constant,
+    project: Project,
+    allowed: set[str] | None,
 ) -> Generator[Issue]:
     frozen_version = project.frozen_requirements.get("scrapy")
     if not frozen_version or frozen_version < Version("2.4.0"):
@@ -254,7 +266,7 @@ def check_import_path(node: Constant, project: Project) -> Generator[Issue]:
     if not is_import_path(node.value):
         yield Issue(INVALID_SETTING_VALUE, Pos.from_node(node))
         return
-    yield from check_import_path_need(node, project)
+    yield from check_component_path(node, project)
 
 
 def check_based_comp_prio(
@@ -278,9 +290,12 @@ def check_based_comp_prio(
                 yield Issue(INVALID_SETTING_VALUE, Pos.from_node(key), detail)
             else:
                 default_value = setting.base.get_default_value(project)
-                if default_value is not UNKNOWN_SETTING_VALUE:
-                    base_import_paths = set(default_value.keys())
-                    yield from check_import_path_need(key, project, base_import_paths)
+                base_import_paths = (
+                    set(default_value.keys())
+                    if default_value is not UNKNOWN_SETTING_VALUE
+                    else None
+                )
+                yield from check_component_path(key, project, base_import_paths)
         if isinstance(value, (Dict, Lambda, List, Set, Tuple)):
             detail = "dict values must be integers or None"
             yield Issue(INVALID_SETTING_VALUE, Pos.from_node(value), detail)
@@ -315,7 +330,7 @@ def check_based_obj_dict(node: expr, *, project: Project, **_) -> Generator[Issu
                 detail = f"{value.value!r} does not look like an import path"
                 yield Issue(INVALID_SETTING_VALUE, Pos.from_node(value), detail)
             else:
-                yield from check_import_path_need(value, project)
+                yield from check_component_path(value, project)
 
 
 def check_comp_prio(node: expr, project: Project, **_) -> Generator[Issue]:
@@ -333,7 +348,7 @@ def check_comp_prio(node: expr, project: Project, **_) -> Generator[Issue]:
                 detail = f"{component!r} does not look like an import path"
                 yield Issue(INVALID_SETTING_VALUE, Pos.from_node(key), detail)
             else:
-                yield from check_import_path_need(key, project)
+                yield from check_component_path(key, project)
         if isinstance(value, (Dict, Lambda, List, Set, Tuple)):
             detail = "dict values must be integers"
             yield Issue(INVALID_SETTING_VALUE, Pos.from_node(value), detail)
@@ -414,6 +429,26 @@ def check_opt_path(
         yield Issue(UNNEEDED_PATH_STRING, pos)
 
 
+def check_bind_address(node: expr, **_) -> Generator[Issue]:
+    if isinstance(node, Tuple):
+        try:
+            host, port = node.elts
+        except ValueError:
+            detail = "tuples must have 2 items, a host and a port"
+            yield Issue(INVALID_SETTING_VALUE, Pos.from_node(node), detail)
+            return
+        if isinstance(host, Constant) and not isinstance(host.value, str):
+            detail = f"host must be a string, not {type(host.value).__name__}"
+            yield Issue(INVALID_SETTING_VALUE, Pos.from_node(host), detail)
+        if isinstance(port, Constant) and not isinstance(port.value, int):
+            detail = f"port must be an integer, not {type(port.value).__name__}"
+            yield Issue(INVALID_SETTING_VALUE, Pos.from_node(port), detail)
+        return
+    if not is_opt_str(node):
+        detail = "must be a host string or a (host, port) tuple"
+        yield Issue(INVALID_SETTING_VALUE, Pos.from_node(node), detail)
+
+
 def check_periodic_log_config_key(key) -> str | None:
     if not isinstance(key.value, str):
         return f"keys must be 'include' or 'exclude', not {type(key.value).__name__} ({key.value!r})"
@@ -486,6 +521,7 @@ TYPE_CHECKERS: dict[SettingType, TypeChecker] = {
     },
     SettingType.BASED_COMP_PRIO_DICT: check_based_comp_prio,
     SettingType.BASED_OBJ_DICT: check_based_obj_dict,
+    SettingType.BIND_ADDRESS: check_bind_address,
     SettingType.COMP_PRIO_DICT: check_comp_prio,
     SettingType.DICT: check_getdict_compatible,
     SettingType.OBJ: check_obj,
