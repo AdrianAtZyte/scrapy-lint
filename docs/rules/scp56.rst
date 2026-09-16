@@ -1,7 +1,7 @@
-.. _scp44:
+.. _scp56:
 
 ===============================
-SCP44: Unsupported class object
+SCP56: Unsupported class object
 ===============================
 
 What it does
