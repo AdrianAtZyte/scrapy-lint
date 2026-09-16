@@ -434,7 +434,7 @@ CASES: Cases = (
                         path=path,
                     ),
                     ExpectedIssue(
-                        "SCP47 missing component requirement: scrapy-zyte-api",
+                        "SCP66 missing component requirement: scrapy-zyte-api",
                         column=10,
                         path=path,
                     ),
@@ -450,7 +450,7 @@ CASES: Cases = (
                         path=path,
                     ),
                     ExpectedIssue(
-                        "SCP47 missing component requirement: scrapy-zyte-api",
+                        "SCP66 missing component requirement: scrapy-zyte-api",
                         column=10,
                         path=path,
                     ),
@@ -474,16 +474,20 @@ CASES: Cases = (
             ),
             (
                 ("scrapy==2.12.0",),
-                "from scrapy_zyte_api import Addon as ScrapyZyteApiAddon\n"
-                ""
-                "ADDONS = {ScrapyZyteApiAddon: 500}",
+                (
+                    "from scrapy_zyte_api import Addon as ScrapyZyteApiAddon\n"
+                    ""
+                    "ADDONS = {ScrapyZyteApiAddon: 500}"
+                ),
                 NO_ISSUE,
             ),
             (
                 ("scrapy==2.12.0",),
-                "from scrapy_zyte_api.addon import Addon as ScrapyZyteApiAddon\n"
-                ""
-                "ADDONS = {ScrapyZyteApiAddon: 500}",
+                (
+                    "from scrapy_zyte_api.addon import Addon as ScrapyZyteApiAddon\n"
+                    ""
+                    "ADDONS = {ScrapyZyteApiAddon: 500}"
+                ),
                 NO_ISSUE,
             ),
             (
@@ -493,9 +497,11 @@ CASES: Cases = (
             ),
             (
                 ("scrapy==2.12.0",),
-                "import scrapy_zyte_api.addon\n"
-                ""
-                "ADDONS = {scrapy_zyte_api.addon.Addon: 500}",
+                (
+                    "import scrapy_zyte_api.addon\n"
+                    ""
+                    "ADDONS = {scrapy_zyte_api.addon.Addon: 500}"
+                ),
                 NO_ISSUE,
             ),
             (
@@ -557,7 +563,7 @@ CASES: Cases = (
                         path=path,
                     ),
                     ExpectedIssue(
-                        "SCP47 missing component requirement: scrapy-poet",
+                        "SCP66 missing component requirement: scrapy-poet",
                         column=10,
                         path=path,
                     ),
@@ -658,7 +664,7 @@ CASES: Cases = (
                     ExpectedIssue("SCP41 unneeded import path", column=22, path=path),
                 ),
             ),
-            # SCP47 missing component requirement
+            # SCP66 missing component requirement
             (
                 (),
                 'DOWNLOADER_MIDDLEWARES = {"scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 633}',
@@ -670,7 +676,7 @@ CASES: Cases = (
                 (
                     ExpectedIssue("SCP41 unneeded import path", column=26, path=path),
                     ExpectedIssue(
-                        "SCP47 missing component requirement: scrapy-zyte-api",
+                        "SCP66 missing component requirement: scrapy-zyte-api",
                         column=26,
                         path=path,
                     ),
@@ -692,7 +698,7 @@ CASES: Cases = (
                 (
                     ExpectedIssue("SCP41 unneeded import path", column=12, path=path),
                     ExpectedIssue(
-                        "SCP47 missing component requirement: scrapy-redis",
+                        "SCP66 missing component requirement: scrapy-redis",
                         column=12,
                         path=path,
                     ),

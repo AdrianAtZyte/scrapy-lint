@@ -1,29 +1,38 @@
 .. _scp47:
 
-====================================
-SCP47: Missing component requirement
-====================================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Reports component import paths in setting values that belong to packages that
-are missing from your :ref:`project requirements <requirements>`.
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-Such components cannot be imported at run time.
+Scrapy fails to start when it cannot import a component.
 
 
 Example
 =======
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
     DOWNLOADER_MIDDLEWARES = {
-        "scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 633,
+        "myproject.middlewares.MyMiddleware": 100,
     }
 
-Add ``scrapy-zyte-api`` to your project requirements.
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
+
+.. code-block:: python
+    :caption: :file:`myproject/settings.py`
+
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }
