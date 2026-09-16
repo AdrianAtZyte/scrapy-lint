@@ -1,33 +1,38 @@
 .. _scp47:
 
-==========================
-SCP47: Unreachable project
-==========================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Finds projects declared in the ``projects`` key of the :file:`scrapinghub.yml`
-:ref:`shub configuration file <shub:configuration>` that Scrapy Cloud does not
-report as available to the API key in use.
-
-Only reported by :ref:`scrapy-lint cloud <cloud>`.
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-The project has been removed, its ID is wrong, or the API key in use does not
-have access to it. Deployments and scheduled jobs targeting it will fail.
+Scrapy fails to start when it cannot import a component.
 
 
-Examples
-========
+Example
+=======
 
-.. code-block:: yaml
+.. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    projects:
-      default: 12345
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyMiddleware": 100,
+    }
 
-If ``12345`` does not exist, replace it with the ID that the Scrapy Cloud
-dashboard shows for the project, or drop the entry.
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
+
+.. code-block:: python
+    :caption: :file:`myproject/settings.py`
+
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }

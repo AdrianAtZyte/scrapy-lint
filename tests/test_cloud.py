@@ -127,7 +127,7 @@ def test_unreachable_project(capsys, client):
     client.projects = FakeProjects([456])
     assert run(File(CONFIG, "scrapinghub.yml")) == 1
     out, err = capsys.readouterr()
-    assert out == "scrapinghub.yml:2:11: SCP47 unreachable project: default: 123\n"
+    assert out == "scrapinghub.yml:2:11: SCP55 unreachable project: default: 123\n"
     assert not err
     assert not client.requested
 
@@ -190,7 +190,7 @@ def test_no_remote_job_settings(capsys, client, job_settings):
 def test_ignored_rule(capsys, client):
     client.projects = FakeProjects([456])
     files = File(CONFIG, "scrapinghub.yml")
-    with project(files, options={"ignore": ["SCP47"]}):
+    with project(files, options={"ignore": ["SCP55"]}):
         main(["cloud"])
     out, _ = capsys.readouterr()
     assert not out
@@ -199,7 +199,7 @@ def test_ignored_rule(capsys, client):
 def test_per_file_ignored_rule(capsys, client):
     client.projects = FakeProjects([456])
     files = File(CONFIG, "scrapinghub.yml")
-    options = {"per-file-ignores": {"scrapinghub.yml": ["SCP47"]}}
+    options = {"per-file-ignores": {"scrapinghub.yml": ["SCP55"]}}
     with project(files, options):
         main(["cloud"])
     out, _ = capsys.readouterr()

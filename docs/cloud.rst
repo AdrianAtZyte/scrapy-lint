@@ -15,7 +15,7 @@ It talks to the Scrapy Cloud API, so it is slow, it needs credentials, and its
 output can change without a commit. It uses the same API key as :ref:`shub
 <shub:configuration>`.
 
-It reports :ref:`SCP47`, and the setting name rules (:ref:`SCP27`,
+It reports :ref:`SCP55`, and the setting name rules (:ref:`SCP27`,
 :ref:`SCP28`, :ref:`SCP29`, :ref:`SCP30`, :ref:`SCP31`, :ref:`SCP33` and
 :ref:`SCP46`) for the Scrapy settings defined for each project in Scrapy
 Cloud. Every issue is reported at the line of the corresponding

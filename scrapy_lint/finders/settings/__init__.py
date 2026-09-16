@@ -56,6 +56,7 @@ from scrapy_lint.issues import (
     IMPROPER_SETTING_DEFINITION,
     INCOMPLETE_PROJECT_THROTTLING,
     LOW_PROJECT_THROTTLING,
+    LOWERCASE_SETTING,
     MISSING_CHANGING_SETTING,
     MISSING_SETTING_REQUIREMENT,
     NO_OP_SETTING_UPDATE,
@@ -90,10 +91,11 @@ from scrapy_lint.versions import (
     UNKNOWN_FUTURE_VERSION,
     UNKNOWN_UNSUPPORTED_VERSION,
     UnknownUnsupportedVersion,
+    check_sunset,
 )
 
 from .types import TYPE_CHECKERS
-from .values import VALUE_CHECKERS
+from .values import VALUE_CHECKERS, check_secret
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -115,6 +117,11 @@ class SettingChecker:
 
     def is_known_setting(self, name: str) -> bool:
         return name in SETTINGS or name in self.additional_known_settings
+
+    def check_lowercase_name(self, name: str, pos: Pos) -> Generator[Issue]:
+        upper = name.upper()
+        if upper != name and self.is_known_setting(upper):
+            yield Issue(LOWERCASE_SETTING, pos, f"did you mean: {upper}?")
 
     def is_supported_setting(self, name: str) -> bool:
         if not self.project.packages or name not in SETTINGS:
@@ -182,34 +189,17 @@ class SettingChecker:
     def check_setting_versioning(self, setting, pos: Pos) -> Generator[Issue]:
         package = setting.package
         added_in = setting.versioning.added_in
-        deprecated_in = setting.versioning.deprecated_in
-        removed_in = setting.versioning.removed_in
-        if not deprecated_in and not added_in:
-            return
         version = self.project.frozen_requirements[package]
         if added_in and version < added_in:
             yield Issue(SETTING_NEEDS_UPGRADE, pos, f"added in {package} {added_in}")
             return
-        if not deprecated_in:
-            return
-        if isinstance(deprecated_in, UnknownUnsupportedVersion):
-            deprecated_in = PACKAGES[package].lowest_supported_version
-            assert deprecated_in
-            if version < deprecated_in:
-                return
-            detail = f"deprecated in {package} {deprecated_in} or lower"
-        else:
-            if version < deprecated_in:
-                return
-            detail = f"deprecated in {package} {deprecated_in}"
-        if removed_in and version >= removed_in:
-            detail += f", removed in {removed_in}"
-            issue = REMOVED_SETTING
-        else:
-            issue = DEPRECATED_SETTING
-        if setting.versioning.sunset_guidance:
-            detail += f"; {setting.versioning.sunset_guidance}"
-        yield Issue(issue, pos, detail)
+        yield from check_sunset(
+            setting,
+            version,
+            pos,
+            DEPRECATED_SETTING,
+            REMOVED_SETTING,
+        )
 
     def check_dict(self, node: expr) -> Generator[Issue]:
         if not is_dict(node):
@@ -236,7 +226,7 @@ class SettingChecker:
         name: Any
         if isinstance(node, tuple):
             resolved_node, import_alias = node
-            name = import_alias.asname if import_alias.asname else import_alias.name
+            name = import_alias.asname or import_alias.name
         else:
             resolved_node = node
             import_alias = None
@@ -386,6 +376,8 @@ class SettingChecker:
         if name not in SETTINGS:
             return
         setting = SETTINGS[name]
+        if setting.is_secret:
+            yield from check_secret(node, setting=setting, project=self.project)
         if setting.type is not None:
             yield from TYPE_CHECKERS[setting.type](
                 node,
@@ -596,10 +588,11 @@ class SettingModuleIssueFinder(NodeVisitor):
 
     def check_import_statement(self, node: Import | ImportFrom) -> None:
         for import_alias in node.names:
-            name = import_alias.asname if import_alias.asname else import_alias.name
-            if not (name and name.isupper()):
-                continue
+            name = import_alias.asname or import_alias.name
             pos = Pos.from_node(node, import_column(import_alias))
+            if not name.isupper():
+                self.issues.extend(self.setting_checker.check_lowercase_name(name, pos))
+                continue
             self.issues.append(Issue(IMPORTED_SETTING, pos))
             for issue in self.setting_checker.check_name((node, import_alias)):
                 self.issues.append(issue)
@@ -621,9 +614,12 @@ class SettingModuleIssueFinder(NodeVisitor):
         def visit_body(body):
             for child in body:
                 if isinstance(child, (ClassDef, FunctionDef)):
-                    if not child.name.isupper():
-                        continue
                     pos = Pos.from_node(child, definition_column(child))
+                    if not child.name.isupper():
+                        self.issues.extend(
+                            self.setting_checker.check_lowercase_name(child.name, pos)
+                        )
+                        continue
                     self.issues.append(Issue(IMPROPER_SETTING_DEFINITION, pos))
                     issue_generator = self.setting_checker.check_name(child)
                     self.issues.extend(issue_generator)
@@ -651,7 +647,12 @@ class SettingsModuleSettingsProcessor:
 
     def process_assignment(self, assignment: Assign) -> Generator[Issue]:
         for target in assignment.targets:
-            if not (isinstance(target, Name) and target.id.isupper()):
+            if not isinstance(target, Name):
+                continue
+            if not target.id.isupper():
+                yield from self.setting_checker.check_lowercase_name(
+                    target.id, Pos.from_node(target)
+                )
                 continue
             yield from self.setting_checker.check_name(target)
             name = target.id
@@ -840,9 +841,9 @@ class SettingsModuleSettingsProcessor:
     def process_import(self, node: Import | ImportFrom) -> None:
         if isinstance(node, Import):
             for import_alias in node.names:
-                name = import_alias.asname if import_alias.asname else import_alias.name
+                name = import_alias.asname or import_alias.name
                 self.imports[name] = import_alias.name
         elif isinstance(node, ImportFrom):
             for import_alias in node.names:
-                name = import_alias.asname if import_alias.asname else import_alias.name
+                name = import_alias.asname or import_alias.name
                 self.imports[name] = f"{node.module}.{import_alias.name}"
