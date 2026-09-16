@@ -1,48 +1,38 @@
 .. _scp47:
 
-=====================
-SCP47: Deprecated API
-=====================
+=============================
+SCP47: Unimportable component
+=============================
 
 What it does
 ============
 
-Reports uses of an API that is deprecated in the package versions frozen in
-your project requirements.
-
-It also reports the package and version in which the API was deprecated, so
-that you can check the corresponding release notes for sunset guidance.
-
-Sometimes sunset guidance is also provided in the error message.
-
-Where migrating is already possible in lower versions, uses are reported as a
-:ref:`discouraged API <scp50>` until the deprecation version.
+Reports component import paths that point to a module or an object of your
+project that does not exist.
 
 
 Why is this bad?
 ================
 
-Deprecated APIs will stop working in future versions of the corresponding
-package.
-
-If you do not follow sunset guidance now to migrate away from the deprecated
-API, the next time you upgrade the corresponding package your project could
-break or misbehave.
+Scrapy fails to start when it cannot import a component.
 
 
 Example
 =======
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    from scrapy.exporters import PythonItemExporter
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyMiddleware": 100,
+    }
 
-    exporter = PythonItemExporter(binary=True)
-
-Use instead:
+If :file:`myproject/middlewares.py` defines ``MyDownloaderMiddleware``
+instead, use:
 
 .. code-block:: python
+    :caption: :file:`myproject/settings.py`
 
-    from scrapy.exporters import PythonItemExporter
-
-    exporter = PythonItemExporter(binary=False)
+    DOWNLOADER_MIDDLEWARES = {
+        "myproject.middlewares.MyDownloaderMiddleware": 100,
+    }

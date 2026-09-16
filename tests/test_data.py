@@ -3,7 +3,7 @@ from __future__ import annotations
 from packaging.utils import canonicalize_name
 from packaging.version import Version
 
-from scrapy_lint.data.apis import API_MEMBERS, API_METHODS, API_PARAMETERS
+from scrapy_lint.data.apis import API_METHODS, API_PARAMETERS
 from scrapy_lint.data.packages import PACKAGES, VERSION_CONFLICTS
 from scrapy_lint.data.settings import SETTINGS
 from scrapy_lint.finders.settings.types import PATH_SUPPORT_VERSIONS
@@ -14,7 +14,7 @@ from scrapy_lint.settings import (
 )
 from scrapy_lint.versions import UNKNOWN_UNSUPPORTED_VERSION, UnknownUnsupportedVersion
 
-ALL_APIS = API_PARAMETERS + API_METHODS + API_MEMBERS
+ALL_APIS = API_PARAMETERS + API_METHODS
 
 
 def test_canonical_package_names():

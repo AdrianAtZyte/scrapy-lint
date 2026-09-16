@@ -15,10 +15,14 @@ from scrapy_lint.issues import Issue
 from .context import Context, Project
 from .errors import InputFileError
 from .finders.apis import APIIssueFinder
+from .finders.attributes import SpiderAttributeIssueFinder
 from .finders.domains import (
     UnreachableDomainIssueFinder,
     UrlInAllowedDomainsIssueFinder,
 )
+from .finders.imports import ImportIssueFinder
+from .finders.items import DocumentationCommentIssueFinder
+from .finders.methods import DeprecatedArgumentIssueFinder
 from .finders.oldstyle import (
     OldSelectorIssueFinder,
     find_extract_then_index_issues,
@@ -32,6 +36,7 @@ from .finders.settings import (
     SettingIssueFinder,
     SettingModuleIssueFinder,
 )
+from .finders.spiders import UnneededStartIssueFinder
 from .finders.unsupported import LambdaCallbackIssueFinder
 from .finders.zyte import ZyteCloudConfigIssueFinder
 
@@ -51,7 +56,7 @@ class PythonIssueFinder(NodeVisitor):
         self,
         context: Context,
         setting_checker: SettingChecker,
-        source: str | None = None,
+        source: str,
     ):
         super().__init__()
         self.issues: list[Issue] = []
@@ -59,6 +64,7 @@ class PythonIssueFinder(NodeVisitor):
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
+        import_issue_finder = ImportIssueFinder(setting_checker.project)
 
         self.finders: dict[str, Sequence[IssueFinder]] = {
             "Assign": [
@@ -79,6 +85,10 @@ class PythonIssueFinder(NodeVisitor):
             "ClassDef": [
                 api_issue_finder,
                 domain_issue_finder,
+                UnneededStartIssueFinder(source),
+                SpiderAttributeIssueFinder(context),
+                DeprecatedArgumentIssueFinder(context),
+                DocumentationCommentIssueFinder(source),
             ],
             "Compare": [
                 setting_issue_finder,
@@ -86,8 +96,11 @@ class PythonIssueFinder(NodeVisitor):
             "FunctionDef": [
                 setting_issue_finder,
             ],
+            "Import": [
+                import_issue_finder,
+            ],
             "ImportFrom": [
-                api_issue_finder,
+                import_issue_finder,
             ],
             "Subscript": [
                 find_extract_then_index_issues,

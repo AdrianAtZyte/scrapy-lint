@@ -84,6 +84,7 @@ def getbool(value: Any) -> bool:
 
 class SettingType(Enum):
     BASED_COMP_PRIO_DICT = "based_comp_prio_dict"
+    BIND_ADDRESS = "bind_address"
     BOOL = "bool"
     COMP_PRIO_DICT = "comp_prio_dict"
     DICT = "dict"
@@ -172,6 +173,7 @@ class Setting:
         default_factory=lambda: UNKNOWN_SETTING_VALUE,
     )
     is_pre_crawler: bool = False
+    is_secret: bool = False
 
     package: str = "scrapy"
     versioning: Versioning = field(default_factory=Versioning)

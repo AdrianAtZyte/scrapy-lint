@@ -1,20 +1,15 @@
 from __future__ import annotations
 
-from ast import AST, Call, ClassDef, FunctionDef, ImportFrom, expr, keyword
+from ast import AST, Call, ClassDef, FunctionDef, expr, keyword
 from typing import TYPE_CHECKING
 
 from packaging.version import Version
 
-from scrapy_lint.ast import (
-    definition_column,
-    extract_literal_value,
-    get_func_name,
-    import_column,
-)
-from scrapy_lint.data.apis import API_MEMBERS, API_METHODS, API_PARAMETERS
+from scrapy_lint.ast import definition_column, extract_literal_value, get_func_name
+from scrapy_lint.data.apis import API_METHODS, API_PARAMETERS
 from scrapy_lint.fixes import Edit, Fix
 from scrapy_lint.issues import DEPRECATED_API, DISCOURAGED_API, REMOVED_API, Issue, Pos
-from scrapy_lint.versions import UnknownUnsupportedVersion
+from scrapy_lint.versions import is_discouraged
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -31,23 +26,20 @@ def by_local_name(apis: tuple[API, ...]) -> dict[tuple[str, str], API]:
 
 PARAMETERS = by_local_name(API_PARAMETERS)
 METHODS = by_local_name(API_METHODS)
-MEMBERS = {(api.path, api.name): api for api in API_MEMBERS}
 SPACES = (b" ", b"\t")
 
 
 class APIIssueFinder:
-    def __init__(self, context: Context, source: str | None = None):
+    def __init__(self, context: Context, source: str):
         self.project = context.project
         self.source = source
 
     def __call__(self, node: AST) -> Generator[Issue]:
         if isinstance(node, Call):
             yield from self.check_call(node)
-        elif isinstance(node, ClassDef):
-            yield from self.check_class(node)
         else:
-            assert isinstance(node, ImportFrom)
-            yield from self.check_import(node)
+            assert isinstance(node, ClassDef)
+            yield from self.check_class(node)
 
     def check_call(self, node: Call) -> Generator[Issue]:
         name = get_func_name(node.func)
@@ -74,13 +66,6 @@ class APIIssueFinder:
                 pos = Pos(statement.lineno, definition_column(statement))
                 subject = f"{api.name} method of {api.path}"
                 yield from self.check_api(api, pos, subject)
-
-    def check_import(self, node: ImportFrom) -> Generator[Issue]:
-        for imported in node.names:
-            api = MEMBERS.get((node.module or "", imported.name))
-            if api is not None:
-                pos = Pos(node.lineno, import_column(imported))
-                yield from self.check_api(api, pos, f"{api.path}.{api.name}")
 
     def check_api(
         self,
@@ -111,7 +96,7 @@ class APIIssueFinder:
                 pos,
                 self.detail(api, f"{subject}, deprecated in {sunset}"),
             )
-        elif self.is_discouraged(api, version):
+        elif is_discouraged(api, version):
             yield Issue(
                 DISCOURAGED_API,
                 pos,
@@ -125,14 +110,6 @@ class APIIssueFinder:
         return detail
 
     @staticmethod
-    def is_discouraged(api: API, version: Version) -> bool:
-        discouraged_in = api.discouraged_in
-        return discouraged_in is not None and (
-            isinstance(discouraged_in, UnknownUnsupportedVersion)
-            or version >= discouraged_in
-        )
-
-    @staticmethod
     def is_deprecated_value(api: API, node: expr) -> bool:
         value, is_literal = extract_literal_value(node)
         return api.deprecated_values is None or (
@@ -140,7 +117,7 @@ class APIIssueFinder:
         )
 
     def build_fix(self, api: API, kw: keyword) -> Fix | None:
-        if not api.droppable or self.source is None:
+        if not api.droppable:
             return None
         edit = keyword_removal_edit(self.source, kw)
         return Fix([edit], message=f"remove the {api.name} argument")

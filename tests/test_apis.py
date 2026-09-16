@@ -24,17 +24,14 @@ INSECURE = ExpectedIssue(
 )
 BINARY = "binary parameter of scrapy.exporters.PythonItemExporter"
 DEPRECATED = (
-    f"SCP47 deprecated API: {BINARY}, deprecated in scrapy 1.1.0; use binary=False"
+    f"SCP74 deprecated API: {BINARY}, deprecated in scrapy 1.1.0; use binary=False"
 )
 REMOVED = (
-    f"SCP48 removed API: {BINARY}, deprecated in scrapy 1.1.0, removed in {REMOVED_IN}"
+    f"SCP75 removed API: {BINARY}, deprecated in scrapy 1.1.0, removed in {REMOVED_IN}"
 )
 DEPRECATED_IN = Version("2.17.0")
 HELP = "help method of scrapy.commands.ScrapyCommand"
 HELP_GUIDANCE = "Scrapy never calls it, use long_desc() instead"
-TLS = "scrapy.core.downloader.tls.METHOD_TLS"
-SSL = "scrapy.utils.ssl.get_temp_key_info"
-INTERNAL = "intended for internal use only"
 COMMAND = cleandoc(
     """
     class Command(ScrapyCommand):
@@ -65,7 +62,7 @@ CASES: Cases = (
             {},
         )
         for version, code, issues in (
-            # SCP47: deprecated API
+            # SCP74: deprecated API
             *(
                 (
                     BEFORE_REMOVAL,
@@ -79,7 +76,7 @@ CASES: Cases = (
                     ("PythonItemExporter(indent=2, binary=True)", 29),
                 )
             ),
-            # SCP47: deprecated API (no issue)
+            # SCP74: deprecated API (no issue)
             *(
                 (BEFORE_REMOVAL, code, NO_ISSUE)
                 for code in (
@@ -92,7 +89,7 @@ CASES: Cases = (
                     "SomeOtherExporter(binary=True)",
                 )
             ),
-            # SCP48: removed API
+            # SCP75: removed API
             *(
                 (
                     LATEST,
@@ -106,7 +103,7 @@ CASES: Cases = (
                     ("exporters.PythonItemExporter(binary=False)", 29),
                 )
             ),
-            # SCP48: removed API (no issue)
+            # SCP75: removed API (no issue)
             *(
                 (LATEST, code, NO_ISSUE)
                 for code in (
@@ -115,14 +112,14 @@ CASES: Cases = (
                     "SomeOtherExporter(binary=False)",
                 )
             ),
-            # SCP50: discouraged API, on methods and module members that are
-            # only deprecated in a higher version.
+            # SCP77: discouraged API, on methods that are only deprecated in a
+            # higher version.
             *(
                 (
                     LATEST,
                     code,
                     ExpectedIssue(
-                        f"SCP50 discouraged API: {subject}, to be deprecated in "
+                        f"SCP77 discouraged API: {subject}, to be deprecated in "
                         f"scrapy {DEPRECATED_IN}; {guidance}",
                         line=line,
                         column=column,
@@ -141,41 +138,23 @@ CASES: Cases = (
                         2,
                         8,
                     ),
-                    (
-                        "from scrapy.core.downloader.tls import METHOD_TLS",
-                        TLS,
-                        INTERNAL,
-                        1,
-                        39,
-                    ),
-                    (
-                        "from scrapy.utils.ssl import get_temp_key_info as info",
-                        SSL,
-                        INTERNAL,
-                        1,
-                        50,
-                    ),
                 )
             ),
-            # SCP50: discouraged API (no issue)
+            # SCP77: discouraged API (no issue)
             *(
                 (LATEST, code, NO_ISSUE)
                 for code in (
                     COMMAND.format(method="long_desc"),
                     COMMAND.format(method="help").replace("ScrapyCommand", "object"),
-                    "from scrapy.core.downloader import tls",
-                    "from scrapy.core.downloader.tls import ScrapyClientTLSOptions",
-                    "from . import METHOD_TLS",
-                    "import scrapy.utils.ssl",
                 )
             ),
-            # From the deprecation version on, the same uses become SCP47.
+            # From the deprecation version on, the same uses become SCP74.
             *(
                 (
                     DEPRECATED_IN,
                     code,
                     ExpectedIssue(
-                        f"SCP47 deprecated API: {subject}, deprecated in "
+                        f"SCP74 deprecated API: {subject}, deprecated in "
                         f"scrapy {DEPRECATED_IN}; {guidance}",
                         line=line,
                         column=column,
@@ -184,13 +163,6 @@ CASES: Cases = (
                 )
                 for code, subject, guidance, line, column in (
                     (COMMAND.format(method="help"), HELP, HELP_GUIDANCE, 2, 8),
-                    (
-                        "from scrapy.core.downloader.tls import METHOD_TLS",
-                        TLS,
-                        INTERNAL,
-                        1,
-                        39,
-                    ),
                 )
             ),
         )

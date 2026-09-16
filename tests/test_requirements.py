@@ -357,7 +357,7 @@ CASES: Cases = (
                     ),
                 ),
             ),
-            # SCP49 incompatible requirement
+            # SCP76 incompatible requirement
             *(
                 (
                     "\n".join(requirements),
@@ -376,7 +376,7 @@ CASES: Cases = (
                         *(
                             (
                                 ExpectedIssue(
-                                    "SCP49 incompatible requirement: scrapy "
+                                    "SCP76 incompatible requirement: scrapy "
                                     "2.11.0+ requires scrapinghub-entrypoint-scrapy 0.14.1+",
                                     line=line,
                                     path=path,

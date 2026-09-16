@@ -1,42 +1,27 @@
 .. _scp49:
 
-===============================
-SCP49: Incompatible requirement
-===============================
+========================
+SCP49: Deprecated import
+========================
 
 What it does
 ============
 
-Finds out if your :ref:`requirements file <requirements-file>` freezes [#f1]_ a
-package version that is too low for another frozen package version.
+Reports imports of modules and objects that are deprecated for the package
+versions frozen in your project requirements.
 
-.. [#f1] This rule only fires for frozen versions (using ``==``). Non-frozen
-    version specifications like ``scrapy>=2.11.0`` or ``scrapy~=2.11`` are
-    ignored.
+It also reports the package and version in which the import was deprecated, so
+that you can check the corresponding release notes for sunset guidance.
+
+Sometimes sunset guidance is also provided in the error message.
 
 
 Why is this bad?
 ================
 
-Your project breaks at run time, often in a way that does not point at the
-requirement that needs an upgrade. For example, ``scrapinghub-entrypoint-scrapy``
-before 0.14.1 uses the binary export mode of
-:class:`~scrapy.exporters.PythonItemExporter`, removed in Scrapy 2.11.0, so on
-Scrapy 2.11.0 and higher it fails with ``TypeError: Unexpected options:
-binary``.
+Deprecated imports will stop working in future versions of the corresponding
+package.
 
-
-Example
-=======
-
-.. code-block:: text
-
-    scrapinghub-entrypoint-scrapy==0.13.0
-    scrapy==2.13.2
-
-Use instead:
-
-.. code-block:: text
-
-    scrapinghub-entrypoint-scrapy==0.14.1
-    scrapy==2.13.2
+If you do not follow sunset guidance now to migrate or remove the deprecated
+import, the next time you upgrade the corresponding package your project could
+break.

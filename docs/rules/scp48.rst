@@ -1,49 +1,47 @@
 .. _scp48:
 
-==================
-SCP48: Removed API
-==================
+==================================
+SCP48: Deprecated spider attribute
+==================================
 
 What it does
 ============
 
-Reports uses of an API that has been removed from the package versions frozen
-in your project requirements but does exist in lower versions of those
-packages.
+Reports spider attributes that are deprecated for the Scrapy version frozen in
+your project requirements.
 
-It also reports the package that defined the API, the version in which the API
-was deprecated, and the version in which it was removed, so that you can check
-the corresponding release notes for sunset guidance.
+It also reports the version in which the attribute was deprecated, and the
+setting to use instead.
 
 
 Why is this bad?
 ================
 
-Removed APIs no longer work. Depending on the API, your project either
-misbehaves or raises an exception, such as ``TypeError: Unexpected options:
-binary`` for the example below.
+Deprecated spider attributes will stop working in future versions of Scrapy.
+
+If you do not migrate now, the next time you upgrade Scrapy your project could
+break or misbehave.
 
 
-Example
-=======
+How to fix it?
+==============
 
-.. code-block:: python
-
-    from scrapy.exporters import PythonItemExporter
-
-    exporter = PythonItemExporter(binary=False)
-
-Use instead:
+Move the value to the matching setting, usually through
+:attr:`~scrapy.Spider.custom_settings`. For example, instead of:
 
 .. code-block:: python
 
-    from scrapy.exporters import PythonItemExporter
+    class ToScrapeComSpider(Spider):
+        name = "toscrape_com"
+        download_timeout = 15
 
-    exporter = PythonItemExporter()
+Do:
 
+.. code-block:: python
 
-Fix
-===
+    class ToScrapeComSpider(Spider):
+        name = "toscrape_com"
+        custom_settings = {"DOWNLOAD_TIMEOUT": 15}
 
-This rule is automatically fixable with the ``--fix`` command-line option for
-removed parameters that only need to be dropped, like the one above.
+Mind that a setting has a different scope than a spider attribute: code that
+reads the attribute from the spider object needs to read the setting instead.
