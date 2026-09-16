@@ -9,6 +9,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from packaging.utils import canonicalize_name
 from packaging.version import Version
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
@@ -88,18 +89,18 @@ class Project:
 
     @cached_property
     def scrapy_lint_options(self) -> dict[str, Any]:
-        pyproject_path = self.path / "pyproject.toml"
-        if not pyproject_path.exists():
-            return {}
-        try:
-            pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-        except (tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
-            raise InputFileError(str(e), pyproject_path) from None
-        return pyproject.get("tool", {}).get("scrapy-lint", {})
+        return self._pyproject.get("tool", {}).get("scrapy-lint", {})
 
     @cached_property
     def packages(self) -> set[str]:
-        return set(self._requirements)
+        packages = set(self._requirements)
+        # The package that a code base defines is not among its requirements,
+        # but it is available to it. An empty set means that no requirements
+        # are declared, i.e. that nothing is known about available packages.
+        name = self._pyproject.get("project", {}).get("name")
+        if packages and isinstance(name, str):
+            packages.add(canonicalize_name(name))
+        return packages
 
     @cached_property
     def requirements_file(self) -> Path | None:
@@ -205,6 +206,16 @@ class Project:
             if candidate.is_file():
                 return candidate
         return None
+
+    @cached_property
+    def _pyproject(self) -> dict[str, Any]:
+        pyproject_path = self.path / "pyproject.toml"
+        if not pyproject_path.exists():
+            return {}
+        try:
+            return tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        except (tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
+            raise InputFileError(str(e), pyproject_path) from None
 
     @cached_property
     def uses_stack(self) -> bool:
