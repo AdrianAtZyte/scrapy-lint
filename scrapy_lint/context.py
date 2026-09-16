@@ -64,14 +64,7 @@ class Project:
 
     @cached_property
     def scrapy_lint_options(self) -> dict[str, Any]:
-        pyproject_path = self.path / "pyproject.toml"
-        if not pyproject_path.exists():
-            return {}
-        try:
-            pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-        except (tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
-            raise InputFileError(str(e), pyproject_path) from None
-        return pyproject.get("tool", {}).get("scrapy-lint", {})
+        return self._pyproject.get("tool", {}).get("scrapy-lint", {})
 
     @cached_property
     def packages(self) -> set[str]:
@@ -183,12 +176,30 @@ class Project:
         return None
 
     @cached_property
+    def _pyproject(self) -> dict[str, Any]:
+        pyproject_path = self.path / "pyproject.toml"
+        if not pyproject_path.exists():
+            return {}
+        try:
+            return tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        except (tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
+            raise InputFileError(str(e), pyproject_path) from None
+
+    @cached_property
+    def _pyproject_requirements(self) -> list[str]:
+        metadata = self._pyproject.get("project", {})
+        groups = [metadata.get("dependencies", [])]
+        groups.extend(metadata.get("optional-dependencies", {}).values())
+        return [line for group in groups for line in group if isinstance(line, str)]
+
+    @cached_property
     def _requirements(self) -> dict[str, list[Requirement]]:
         content = self.requirements_text
-        if content is None:
-            return {}
+        lines = (
+            self._pyproject_requirements if content is None else content.splitlines()
+        )
         result = defaultdict(list)
-        for _, name, requirement in iter_requirement_lines(content.splitlines()):
+        for _, name, requirement in iter_requirement_lines(lines):
             result[name].append(requirement)
         return result
 
