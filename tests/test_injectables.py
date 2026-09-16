@@ -29,7 +29,7 @@ CASES: Cases = tuple(
             ("scrapy-poet==0.14.0",),
             "from web_poet import Stats",
             ExpectedIssue(
-                "SCP53 unsupported injectable: added in scrapy-poet 0.15.0",
+                "SCP62 unsupported injectable: added in scrapy-poet 0.15.0",
                 path="a.py",
                 column=21,
             ),
@@ -43,7 +43,7 @@ CASES: Cases = tuple(
             ("scrapy-poet==0.14.0",),
             "from web_poet.page_inputs.stats import Stats as PoetStats",
             ExpectedIssue(
-                "SCP53 unsupported injectable: added in scrapy-poet 0.15.0",
+                "SCP62 unsupported injectable: added in scrapy-poet 0.15.0",
                 path="a.py",
                 column=48,
             ),
@@ -52,7 +52,7 @@ CASES: Cases = tuple(
             ("scrapy-poet==0.16.0",),
             "import web_poet\n\ndef parse(request: web_poet.HttpRequest): pass",
             ExpectedIssue(
-                "SCP53 unsupported injectable: added in scrapy-poet 0.17.0",
+                "SCP62 unsupported injectable: added in scrapy-poet 0.17.0",
                 path="a.py",
                 line=3,
                 column=19,
