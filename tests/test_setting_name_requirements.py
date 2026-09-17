@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from tests.helpers import check_project
 
-from . import NO_ISSUE, Cases, ExpectedIssue, File, cases, iter_issues
+from . import (
+    NO_ISSUE,
+    Cases,
+    ExpectedIssue,
+    File,
+    cases,
+    insecure_scrapy_issues,
+    iter_issues,
+)
 from .test_requirements import (
     SCRAPY_ANCIENT_VERSION,
     SCRAPY_FUTURE_VERSION,
@@ -24,6 +32,7 @@ CASES: Cases = (
                     "SCP13 incomplete requirements freeze",
                     path="requirements.txt",
                 ),
+                *insecure_scrapy_issues(requirements),
                 *iter_issues(issues),  # type: ignore[arg-type]
             ),
             {},
@@ -108,23 +117,13 @@ CASES: Cases = (
                         ("scrapy==2.10.0",),
                         "ADD_ONS",
                         ("ADDONS",),
-                        (
-                            ExpectedIssue(
-                                "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                                path="requirements.txt",
-                            ),
-                        ),
+                        (),
                     ),
                     (
                         ("scrapy==2.9.0",),
                         "ADD_ONS",
                         (),
-                        (
-                            ExpectedIssue(
-                                "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                                path="requirements.txt",
-                            ),
-                        ),
+                        (),
                     ),
                 )
             ),
@@ -148,10 +147,6 @@ CASES: Cases = (
                 ("scrapy==2.1.0",),
                 "FEED_FORMAT",
                 (
-                    ExpectedIssue(
-                        "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                        path="requirements.txt",
-                    ),
                     ExpectedIssue(
                         "SCP28 deprecated setting: deprecated in scrapy 2.1.0; use FEEDS instead",
                         path=path,
@@ -263,9 +258,9 @@ CASES: Cases = (
             # SCP28 deprecated setting: deprecation extends to future versions
             (
                 (f"scrapy=={SCRAPY_FUTURE_VERSION}",),
-                "REQUEST_FINGERPRINTER_IMPLEMENTATION",
+                "FEED_URI",
                 ExpectedIssue(
-                    "SCP28 deprecated setting: deprecated in scrapy 2.12.0",
+                    "SCP28 deprecated setting: deprecated in scrapy 2.1.0; use FEEDS instead",
                     path=path,
                     column=column,
                 ),
@@ -294,10 +289,6 @@ CASES: Cases = (
                         path="requirements.txt",
                     ),
                     ExpectedIssue(
-                        "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                        path="requirements.txt",
-                    ),
-                    ExpectedIssue(
                         "SCP28 deprecated setting: deprecated in scrapy 1.0.0",
                         path=path,
                         column=column,
@@ -312,10 +303,6 @@ CASES: Cases = (
                 (f"scrapy=={SCRAPY_LOWEST_SUPPORTED}",),
                 "LOG_UNSERIALIZABLE_REQUESTS",
                 (
-                    ExpectedIssue(
-                        "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                        path="requirements.txt",
-                    ),
                     ExpectedIssue(
                         "SCP28 deprecated setting: deprecated in scrapy 2.0.1 or lower; use SCHEDULER_DEBUG instead",
                         path=path,
@@ -337,10 +324,6 @@ CASES: Cases = (
                         path="requirements.txt",
                     ),
                     ExpectedIssue(
-                        "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                        path="requirements.txt",
-                    ),
-                    ExpectedIssue(
                         "SCP32 wrong setting method: use getbool()",
                         path=path,
                         column=column - 1,
@@ -351,21 +334,12 @@ CASES: Cases = (
             (
                 ("scrapy==2.7.0",),
                 "REQUEST_FINGERPRINTER_IMPLEMENTATION",
-                (
-                    ExpectedIssue(
-                        "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                        path="requirements.txt",
-                    ),
-                ),
+                NO_ISSUE,
             ),
             (
                 ("scrapy==2.6.3",),
                 "REQUEST_FINGERPRINTER_IMPLEMENTATION",
                 (
-                    ExpectedIssue(
-                        "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                        path="requirements.txt",
-                    ),
                     ExpectedIssue(
                         "SCP29 setting needs upgrade: added in scrapy 2.7.0",
                         column=column,
@@ -379,12 +353,42 @@ CASES: Cases = (
                 "LOG_UNSERIALIZABLE_REQUESTS",
                 (
                     ExpectedIssue(
-                        "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                        path="requirements.txt",
-                    ),
-                    ExpectedIssue(
                         "SCP30 removed setting: deprecated in scrapy 2.0.1 or "
                         "lower, removed in 2.1.0; use SCHEDULER_DEBUG instead",
+                        path=path,
+                        column=column,
+                    ),
+                    ExpectedIssue(
+                        "SCP32 wrong setting method: use getbool()",
+                        path=path,
+                        column=column - 1,
+                    ),
+                ),
+            ),
+            (
+                ("scrapy==2.14.0",),
+                "REQUEST_FINGERPRINTER_IMPLEMENTATION",
+                ExpectedIssue(
+                    "SCP30 removed setting: deprecated in scrapy 2.12.0, removed in 2.14.0",
+                    path=path,
+                    column=column,
+                ),
+            ),
+            (
+                ("scrapy==2.16.0",),
+                "DOWNLOADER_HTTPCLIENTFACTORY",
+                ExpectedIssue(
+                    "SCP30 removed setting: deprecated in scrapy 2.13.0, removed in 2.16.0",
+                    path=path,
+                    column=column,
+                ),
+            ),
+            (
+                ("scrapy==2.16.0",),
+                "AJAXCRAWL_ENABLED",
+                (
+                    ExpectedIssue(
+                        "SCP30 removed setting: deprecated in scrapy 2.13.0, removed in 2.16.0",
                         path=path,
                         column=column,
                     ),
@@ -425,6 +429,67 @@ CASES: Cases = (
                 NO_ISSUE,
             ),
         )
+    ),
+    # The package that a code base defines counts as required.
+    *(
+        (
+            (
+                File("", path="scrapy.cfg"),
+                File(f'[project]\nname = "{name}"\n', path="pyproject.toml"),
+                File("\n".join(requirements), path="requirements.txt"),
+                File(f"settings[{setting_name!r}]", path="a.py"),
+            ),
+            (
+                ExpectedIssue(
+                    "SCP13 incomplete requirements freeze",
+                    path="requirements.txt",
+                ),
+                *iter_issues(issues),  # type: ignore[arg-type]
+            ),
+            {},
+        )
+        for name, requirements, setting_name, issues in (
+            ("Scrapy", ("w3lib",), "USER_AGENT", NO_ISSUE),
+            (
+                "Scrapy",
+                ("w3lib",),
+                "SCRAPY_POET_CACHE",
+                ExpectedIssue(
+                    "SCP31 missing setting requirement: scrapy-poet",
+                    column=9,
+                    path="a.py",
+                ),
+            ),
+            (
+                "scrapy-poet",
+                ("scrapy",),
+                "SCRAPY_POET_CACHE",
+                NO_ISSUE,
+            ),
+            # Suggestions cover the settings of the defined package.
+            (
+                "Scrapy",
+                ("w3lib",),
+                "CONCURENT_REQUESTS",
+                ExpectedIssue(
+                    "SCP27 unknown setting: did you mean: CONCURRENT_REQUESTS, "
+                    "CONCURRENT_REQUESTS_PER_IP, CONCURRENT_REQUESTS_PER_DOMAIN?",
+                    column=9,
+                    path="a.py",
+                ),
+            ),
+        )
+    ),
+    # Without requirements, nothing is known about available packages, so the
+    # defined package makes no difference.
+    (
+        (
+            File("", path="scrapy.cfg"),
+            File('[project]\nname = "Scrapy"\n', path="pyproject.toml"),
+            File("settings['SCRAPY_POET_CACHE']", path="a.py"),
+        ),
+        NO_ISSUE,
+        {},
     ),
 )
 

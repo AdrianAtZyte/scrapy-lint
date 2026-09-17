@@ -94,7 +94,7 @@ from scrapy_lint.versions import (
     check_sunset,
 )
 
-from .types import TYPE_CHECKERS
+from .types import TYPE_CHECKERS, is_allowed_none
 from .values import VALUE_CHECKERS, check_secret
 
 if TYPE_CHECKING:
@@ -373,7 +373,9 @@ class SettingChecker:
         setting = SETTINGS[name]
         if setting.is_secret:
             yield from check_secret(node, setting=setting, project=self.project)
-        if setting.type is not None:
+        if setting.type is not None and not is_allowed_none(
+            node, setting, self.project
+        ):
             yield from TYPE_CHECKERS[setting.type](
                 node,
                 setting=setting,
