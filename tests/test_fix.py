@@ -5,6 +5,7 @@ from inspect import cleandoc
 
 import pytest
 
+from scrapy_lint.data.packages import PACKAGES
 from scrapy_lint.finders.domains import UrlInAllowedDomainsIssueFinder
 from scrapy_lint.finders.spiders import StartUrlIssueFinder, UnneededStartIssueFinder
 from scrapy_lint.fixes import Edit, apply_edits
@@ -14,6 +15,7 @@ from . import File
 from .helpers import fix_project
 
 PATH = "a.py"
+SCRAPY_HIGHEST_KNOWN = PACKAGES["scrapy"].highest_known_version
 
 
 # (source, expected output, number of edits applied)
@@ -419,6 +421,106 @@ def test_fix(source: str, expected: str, fixed: int):
         File(source, path=PATH),
         File(expected, path=PATH),
         expected_fixed=fixed,
+    )
+
+
+# (source, expected output) for SCP75, where the removed argument is dropped
+# together with the comma that separates it from a neighboring argument.
+API_CASES = (
+    (
+        "PythonItemExporter(binary=False)\n",
+        "PythonItemExporter()\n",
+    ),
+    (
+        "PythonItemExporter(binary=False, indent=2)\n",
+        "PythonItemExporter(indent=2)\n",
+    ),
+    (
+        "PythonItemExporter(indent=2, binary=False)\n",
+        "PythonItemExporter(indent=2)\n",
+    ),
+    (
+        "PythonItemExporter(indent=2, binary =  False)\n",
+        "PythonItemExporter(indent=2)\n",
+    ),
+    (
+        "PythonItemExporter(binary=False,)\n",
+        "PythonItemExporter()\n",
+    ),
+    # An argument that has a line to itself takes the whole line with it.
+    (
+        cleandoc(
+            """
+            PythonItemExporter(
+                binary=False,
+                indent=2,
+            )
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            PythonItemExporter(
+                indent=2,
+            )
+            """,
+        )
+        + "\n",
+    ),
+    (
+        cleandoc(
+            """
+            PythonItemExporter(
+                indent=2,
+                binary=False
+            )
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            PythonItemExporter(
+                indent=2,
+            )
+            """,
+        )
+        + "\n",
+    ),
+    # A parenthesized value is removed along with its parentheses.
+    (
+        cleandoc(
+            """
+            PythonItemExporter(binary=(
+                False
+            ), indent=2)
+            """,
+        )
+        + "\n",
+        "PythonItemExporter(indent=2)\n",
+    ),
+    # Values that cannot be resolved statically are removed as well: on these
+    # Scrapy versions the parameter is gone whatever its value.
+    (
+        "PythonItemExporter(binary=flag)\n",
+        "PythonItemExporter()\n",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    API_CASES,
+    ids=range(len(API_CASES)),
+)
+def test_fix_removed_api(source: str, expected: str):
+    fix_project(
+        (
+            File("", path="scrapy.cfg"),
+            File(f"scrapy=={SCRAPY_HIGHEST_KNOWN}", path="requirements.txt"),
+            File(source, path=PATH),
+        ),
+        File(expected, path=PATH),
+        expected_fixed=1,
     )
 
 

@@ -14,6 +14,7 @@ from scrapy_lint.issues import Issue
 
 from .context import Context, Project
 from .errors import InputFileError
+from .finders.apis import APIIssueFinder
 from .finders.attributes import SpiderAttributeIssueFinder
 from .finders.dockerfile import find_dockerfile_issues
 from .finders.domains import (
@@ -61,6 +62,7 @@ class PythonIssueFinder(NodeVisitor):
     ):
         super().__init__()
         self.issues: list[Issue] = []
+        api_issue_finder = APIIssueFinder(context, source)
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
@@ -77,11 +79,13 @@ class PythonIssueFinder(NodeVisitor):
             "Call": [
                 find_get_first_by_index_issues,
                 lambda_callback_issue_finder,
+                api_issue_finder,
                 RequestIssueFinder(),
                 setting_issue_finder,
                 find_url_join_issues,
             ],
             "ClassDef": [
+                api_issue_finder,
                 domain_issue_finder,
                 StartUrlIssueFinder(source),
                 UnneededStartIssueFinder(source),
