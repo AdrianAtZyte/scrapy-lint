@@ -10,8 +10,8 @@ Package versions
 ================
 
 Rules that depend on the version of a package read the version specifiers of
-its requirement in your :ref:`requirements file <requirements>`, and report an
-issue that applies to any version of the declared range.
+its requirement in your :ref:`requirements file <requirements-file>`, and
+report an issue that applies to any version of the declared range.
 
 The lowest version of the range decides whether something does not exist yet,
 and the highest version decides whether something is deprecated or removed.

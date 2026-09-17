@@ -9,6 +9,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
@@ -54,6 +55,16 @@ def _defines(module_file: Path, name: str) -> bool:
 
 
 @dataclass
+class PythonDeclaration:
+    """Python version that a project declares, and where it declares it."""
+
+    key: str
+    value: str
+    specifier: SpecifierSet
+    file: Path
+
+
+@dataclass
 class Project:
     path: Path
 
@@ -86,6 +97,32 @@ class Project:
     @cached_property
     def scrapy_lint_options(self) -> dict[str, Any]:
         return self._pyproject.get("tool", {}).get("scrapy-lint", {})
+
+    @cached_property
+    def declared_python(self) -> PythonDeclaration | None:
+        """Return the Python version that the project declares.
+
+        Declarations are looked up in the :file:`.python-version` file and in
+        the ``requires-python`` key of :file:`pyproject.toml`, in that order.
+        The result is ``None`` when neither declares a valid Python version.
+        """
+        python_version_path = self.path / ".python-version"
+        version = _read_python_version_file(python_version_path)
+        if version is not None:
+            return _declaration(
+                ".python-version",
+                version,
+                python_version_path,
+                exact=True,
+            )
+        specifier = self._pyproject.get("project", {}).get("requires-python")
+        if not isinstance(specifier, str):
+            return None
+        return _declaration(
+            "requires-python",
+            specifier,
+            self.path / "pyproject.toml",
+        )
 
     @cached_property
     def packages(self) -> set[str]:
@@ -214,6 +251,13 @@ class Project:
             raise InputFileError(str(e), pyproject_path) from None
 
     @cached_property
+    def _pyproject_requirements(self) -> list[str]:
+        metadata = self._pyproject.get("project", {})
+        groups = [metadata.get("dependencies", [])]
+        groups.extend(metadata.get("optional-dependencies", {}).values())
+        return [line for group in groups for line in group if isinstance(line, str)]
+
+    @cached_property
     def uses_stack(self) -> bool:
         """Whether the project is deployed on a Zyte stack."""
         config = self.scrapy_cloud_config
@@ -224,12 +268,44 @@ class Project:
     @cached_property
     def _requirements(self) -> dict[str, list[Requirement]]:
         content = self.requirements_text
-        if content is None:
-            return {}
+        lines = (
+            self._pyproject_requirements if content is None else content.splitlines()
+        )
         result = defaultdict(list)
-        for _, name, requirement in iter_requirement_lines(content.splitlines()):
+        for _, name, requirement in iter_requirement_lines(lines):
             result[name].append(requirement)
         return result
+
+
+def _declaration(
+    key: str,
+    value: str,
+    file: Path,
+    exact: bool = False,
+) -> PythonDeclaration | None:
+    """Return the declaration that *value* makes, ``None`` if it is invalid.
+
+    *value* is a version when *exact* is true, and a version specifier
+    otherwise.
+    """
+    try:
+        specifier = SpecifierSet(f"=={value}" if exact else value)
+    except InvalidSpecifier:
+        return None
+    return PythonDeclaration(key, value, specifier, file)
+
+
+def _read_python_version_file(path: Path) -> str | None:
+    """Return the version in a :file:`.python-version` file."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    for line in text.splitlines():
+        version = line.strip()
+        if version and not version.startswith("#"):
+            return version
+    return None
 
 
 @dataclass

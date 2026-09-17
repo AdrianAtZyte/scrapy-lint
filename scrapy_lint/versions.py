@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from scrapy_lint.data.packages import PACKAGES
-from scrapy_lint.issues import Issue
+from scrapy_lint.issues import DISCOURAGED_API, Issue
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -113,7 +113,8 @@ def check_sunset(
     removed_id: tuple[int, str],
 ) -> Generator[Issue]:
     """Report *entry*, whose package the project allows at *versions*, as
-    deprecated or removed, using *deprecated_id* or *removed_id* respectively."""
+    deprecated or removed, using *deprecated_id* or *removed_id* respectively,
+    or as a discouraged API while it is worth avoiding but not deprecated yet."""
     versioning = entry.versioning
     package = entry.package
     deprecated_in = versioning.deprecated_in
@@ -125,15 +126,28 @@ def check_sunset(
         assert deprecated_in
         suffix = " or lower"
     if not versions.allows_at_least(deprecated_in):
-        return
-    detail = f"deprecated in {package} {deprecated_in}{suffix}"
-    removed_in = versioning.removed_in
-    if removed_in and versions.allows_at_least(removed_in):
-        detail += f", removed in {removed_in}"
-        id_ = removed_id
+        if not is_discouraged(entry, versions):
+            return
+        id_ = DISCOURAGED_API
+        detail = f"to be deprecated in {package} {deprecated_in}{suffix}"
     else:
-        id_ = deprecated_id
+        detail = f"deprecated in {package} {deprecated_in}{suffix}"
+        removed_in = versioning.removed_in
+        if removed_in and versions.allows_at_least(removed_in):
+            detail += f", removed in {removed_in}"
+            id_ = removed_id
+        else:
+            id_ = deprecated_id
     detail += versions.support_detail(package)
     if versioning.sunset_guidance:
         detail += f"; {versioning.sunset_guidance}"
     yield Issue(id_, pos, detail)
+
+
+def is_discouraged(entry, versions: VersionRange) -> bool:
+    """Return whether *entry* should be avoided already at *versions*."""
+    discouraged_in = getattr(entry, "discouraged_in", None)
+    return discouraged_in is not None and (
+        isinstance(discouraged_in, UnknownUnsupportedVersion)
+        or versions.allows_at_least(discouraged_in)
+    )

@@ -14,6 +14,7 @@ from scrapy_lint.issues import Issue
 
 from .context import Context, Project
 from .errors import InputFileError
+from .finders.apis import APIIssueFinder
 from .finders.attributes import SpiderAttributeIssueFinder
 from .finders.dockerfile import find_dockerfile_issues
 from .finders.domains import (
@@ -29,6 +30,7 @@ from .finders.oldstyle import (
     find_get_first_by_index_issues,
     find_url_join_issues,
 )
+from .finders.python_version import PythonVersionIssueFinder
 from .finders.requests import RequestIssueFinder
 from .finders.requirements import RequirementsIssueFinder
 from .finders.settings import (
@@ -60,6 +62,7 @@ class PythonIssueFinder(NodeVisitor):
     ):
         super().__init__()
         self.issues: list[Issue] = []
+        api_issue_finder = APIIssueFinder(context, source)
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
@@ -76,11 +79,13 @@ class PythonIssueFinder(NodeVisitor):
             "Call": [
                 find_get_first_by_index_issues,
                 lambda_callback_issue_finder,
+                api_issue_finder,
                 RequestIssueFinder(),
                 setting_issue_finder,
                 find_url_join_issues,
             ],
             "ClassDef": [
+                api_issue_finder,
                 domain_issue_finder,
                 StartUrlIssueFinder(source),
                 UnneededStartIssueFinder(source),
@@ -179,6 +184,10 @@ class Linter:
                 zyte_config_path = project.path / "scrapinghub.yml"
                 if zyte_config_path.exists():
                     files.add(zyte_config_path)
+                for name in ("pyproject.toml", ".python-version"):
+                    declaration_path = project.path / name
+                    if declaration_path.exists():
+                        files.add(declaration_path)
                 if project.requirements_file and project.requirements_file.exists():
                     files.add(project.requirements_file)
                 if project.dockerfile:
@@ -230,6 +239,8 @@ class Linter:
             yield from self.lint_python_file(file)
         elif file.name == "scrapinghub.yml":
             yield from ZyteCloudConfigIssueFinder(self.context).lint(file)
+        elif file.name in {"pyproject.toml", ".python-version"}:
+            yield from PythonVersionIssueFinder(self.context).lint(file)
         elif file == self.project.dockerfile:
             yield from find_dockerfile_issues(self.context)
         elif (

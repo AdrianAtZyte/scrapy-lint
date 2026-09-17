@@ -211,14 +211,14 @@ CASES: Cases = (
                 "REQUEST_FINGERPRINTER_IMPLEMENTATION",
                 NO_ISSUE,
             ),
-            # SCP28 deprecated setting: version ranges, where the highest
+            # SCP30 removed setting: version ranges, where the highest
             # allowed version decides.
             (
                 ("scrapy",),
                 "REQUEST_FINGERPRINTER_IMPLEMENTATION",
                 ExpectedIssue(
-                    "SCP28 deprecated setting: deprecated in scrapy 2.12.0; "
-                    "this project supports any scrapy version",
+                    "SCP30 removed setting: deprecated in scrapy 2.12.0, "
+                    "removed in 2.14.0; this project supports any scrapy version",
                     path=path,
                     column=column,
                 ),
@@ -227,8 +227,9 @@ CASES: Cases = (
                 (f"scrapy>={SCRAPY_LOWEST_SAFE}",),
                 "REQUEST_FINGERPRINTER_IMPLEMENTATION",
                 ExpectedIssue(
-                    "SCP28 deprecated setting: deprecated in scrapy 2.12.0; "
-                    f"this project supports scrapy >={SCRAPY_LOWEST_SAFE}",
+                    "SCP30 removed setting: deprecated in scrapy 2.12.0, "
+                    "removed in 2.14.0; this project supports scrapy "
+                    f">={SCRAPY_LOWEST_SAFE}",
                     path=path,
                     column=column,
                 ),
