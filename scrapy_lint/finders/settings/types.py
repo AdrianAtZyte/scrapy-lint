@@ -239,6 +239,16 @@ def is_opt_int(node: expr, **kwargs) -> bool:
     return is_getint_compatible(node, **kwargs)
 
 
+def is_allowed_none(node: expr, setting: Setting, project: Project) -> bool:
+    if not isinstance(node, Constant) or node.value is not None:
+        return False
+    nullable_since = setting.versioning.nullable_since
+    if nullable_since is None:
+        return False
+    version = project.frozen_requirements.get(setting.package)
+    return version is None or version >= nullable_since
+
+
 class IsTypeFunction(Protocol):  # pylint: disable=too-few-public-methods
     def __call__(self, node: expr, *, setting: Setting) -> bool: ...
 
@@ -458,6 +468,7 @@ PATH_SUPPORT_VERSIONS: dict[str, Version | UnknownUnsupportedVersion] = {
     "IMAGES_STORE": Version("2.9.0"),
     "JOBDIR": Version("2.8.0"),
     "LOG_FILE": UNKNOWN_UNSUPPORTED_VERSION,
+    "REMOTE_CONTROL_JOBS_DIR": Version("2.19.0"),
     "TEMPLATES_DIR": Version("2.8.0"),
 }
 
