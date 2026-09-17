@@ -14,7 +14,9 @@ from scrapy_lint.issues import Issue
 
 from .context import Context, Project
 from .errors import InputFileError
+from .finders.apis import APIIssueFinder
 from .finders.attributes import SpiderAttributeIssueFinder
+from .finders.dockerfile import find_dockerfile_issues
 from .finders.domains import (
     UnreachableDomainIssueFinder,
     UrlInAllowedDomainsIssueFinder,
@@ -28,6 +30,7 @@ from .finders.oldstyle import (
     find_get_first_by_index_issues,
     find_url_join_issues,
 )
+from .finders.python_version import PythonVersionIssueFinder
 from .finders.requests import RequestIssueFinder
 from .finders.requirements import RequirementsIssueFinder
 from .finders.settings import (
@@ -35,7 +38,7 @@ from .finders.settings import (
     SettingIssueFinder,
     SettingModuleIssueFinder,
 )
-from .finders.spiders import UnneededStartIssueFinder
+from .finders.spiders import StartUrlIssueFinder, UnneededStartIssueFinder
 from .finders.unsupported import LambdaCallbackIssueFinder
 from .finders.zyte import ZyteCloudConfigIssueFinder
 
@@ -59,6 +62,7 @@ class PythonIssueFinder(NodeVisitor):
     ):
         super().__init__()
         self.issues: list[Issue] = []
+        api_issue_finder = APIIssueFinder(context, source)
         deprecated_method_issue_finder = DeprecatedMethodIssueFinder()
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
@@ -77,12 +81,15 @@ class PythonIssueFinder(NodeVisitor):
                 deprecated_method_issue_finder,
                 find_get_first_by_index_issues,
                 lambda_callback_issue_finder,
+                api_issue_finder,
                 RequestIssueFinder(),
                 setting_issue_finder,
                 find_url_join_issues,
             ],
             "ClassDef": [
+                api_issue_finder,
                 domain_issue_finder,
+                StartUrlIssueFinder(source),
                 UnneededStartIssueFinder(source),
                 SpiderAttributeIssueFinder(context),
                 DeprecatedArgumentIssueFinder(context),
@@ -149,12 +156,15 @@ class Linter:
         self.ignores: set[int] = {
             int(code[3:]) for code in self.project.scrapy_lint_options.get("ignore", [])
         }
-        self.per_file_ignores: dict[Path, set[int]] = {
-            (self.project.path / file).resolve(): {int(code[3:]) for code in codes}
-            for file, codes in self.project.scrapy_lint_options.get(
+        self.per_file_ignores: list[tuple[GitIgnoreSpec, set[int]]] = [
+            (
+                GitIgnoreSpec.from_lines([pattern]),
+                {int(code[3:]) for code in codes},
+            )
+            for pattern, codes in self.project.scrapy_lint_options.get(
                 "per-file-ignores", {}
             ).items()
-        }
+        ]
 
     @classmethod
     def resolve_files(
@@ -177,8 +187,14 @@ class Linter:
                 zyte_config_path = project.path / "scrapinghub.yml"
                 if zyte_config_path.exists():
                     files.add(zyte_config_path)
+                for name in ("pyproject.toml", ".python-version"):
+                    declaration_path = project.path / name
+                    if declaration_path.exists():
+                        files.add(declaration_path)
                 if project.requirements_file and project.requirements_file.exists():
                     files.add(project.requirements_file)
+                if project.dockerfile:
+                    files.add(project.dockerfile)
             for python_file_path in path.glob("**/*.py"):
                 if spec is None or not spec.match_file(
                     python_file_path.relative_to(project.path),
@@ -189,10 +205,11 @@ class Linter:
     def lint(self) -> Generator[Issue]:
         for file in self.files:
             absolute_file = file.resolve()
+            relative_file = absolute_file.relative_to(self.project.path)
             for issue in self.lint_file(absolute_file):
-                if self.is_ignored(issue, absolute_file):
+                if self.is_ignored(issue, relative_file):
                     continue
-                issue.file = absolute_file.relative_to(self.project.path)
+                issue.file = relative_file
                 yield issue
 
     def fix(self) -> FixResult:
@@ -215,8 +232,9 @@ class Linter:
         return result
 
     def is_ignored(self, issue: Issue, file: Path) -> bool:
-        return issue.code in self.ignores or (
-            file in self.per_file_ignores and issue.code in self.per_file_ignores[file]
+        return issue.code in self.ignores or any(
+            issue.code in codes and spec.match_file(file)
+            for spec, codes in self.per_file_ignores
         )
 
     def lint_file(self, file: Path) -> Generator[Issue]:
@@ -224,6 +242,10 @@ class Linter:
             yield from self.lint_python_file(file)
         elif file.name == "scrapinghub.yml":
             yield from ZyteCloudConfigIssueFinder(self.context).lint(file)
+        elif file.name in {"pyproject.toml", ".python-version"}:
+            yield from PythonVersionIssueFinder(self.context).lint(file)
+        elif file == self.project.dockerfile:
+            yield from find_dockerfile_issues(self.context)
         elif (
             self.project.requirements_file is not None
             and file == self.project.requirements_file
