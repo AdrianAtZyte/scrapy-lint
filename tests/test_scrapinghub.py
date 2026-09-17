@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 
-from . import NO_ISSUE, ExpectedIssue, File, cases, iter_issues
+from scrapy_lint.data.packages import PACKAGES
+
+from . import NO_ISSUE, ExpectedIssue, ExpectedIssues, File, cases, iter_issues
 from .helpers import check_project
 
 
@@ -8,7 +10,9 @@ def issue(message, path="scrapinghub.yml", **kwargs):
     return ExpectedIssue(message, path=path, **kwargs)
 
 
-LATEST_KNOWN_STACK = "scrapy:2.12-20241202"
+LATEST_KNOWN_STACK_TAG = "2.12-20241202"
+LATEST_KNOWN_STACK = f"scrapy:{LATEST_KNOWN_STACK_TAG}"
+STACK_IMAGE = "scrapinghub/scrapinghub-stack-scrapy"
 MISSING_STACK_ISSUE = ExpectedIssue(
     message="SCP24 missing stack requirements: aiohttp, "
     "awscli, boto, boto3, jinja2, monkeylearn, pillow, pyyaml, "
@@ -21,6 +25,13 @@ MISSING_STACK_ISSUE = ExpectedIssue(
 )
 
 
+INSECURE_SCRAPY_ISSUE = ExpectedIssue(
+    message="SCP15 insecure requirement: scrapy "
+    f"{PACKAGES['scrapy'].lowest_safe_version} implements security fixes",
+    path="requirements.txt",
+)
+
+
 def default_issues(path: str = "requirements.txt") -> Sequence[ExpectedIssue]:
     return (
         ExpectedIssue(
@@ -29,6 +40,43 @@ def default_issues(path: str = "requirements.txt") -> Sequence[ExpectedIssue]:
         ),
     )
 
+
+UNFROZEN_STACK_ISSUE = issue(
+    "SCP20 stack not frozen",
+    path="Dockerfile",
+    column=5,
+)
+DOCKERFILE_CASES: Sequence[tuple[str, str, ExpectedIssues]] = (
+    (
+        "image: true",
+        f"FROM {STACK_IMAGE}:{LATEST_KNOWN_STACK_TAG}",
+        MISSING_STACK_ISSUE,
+    ),
+    *(
+        ("image: true", dockerfile, (UNFROZEN_STACK_ISSUE, MISSING_STACK_ISSUE))
+        for dockerfile in (
+            f"FROM {STACK_IMAGE}:2.12",
+            f"FROM {STACK_IMAGE}:latest",
+            f"FROM {STACK_IMAGE}",
+            "FROM docker.io/scrapinghub/scrapinghub-stack-hworker:2.12 AS base",
+            f"FROM {STACK_IMAGE}:2.12\nFROM {STACK_IMAGE}:{LATEST_KNOWN_STACK_TAG}",
+        )
+    ),
+    # A Dockerfile not based on a stack image is not a stack.
+    ("image: true", "FROM python:3.13", NO_ISSUE),
+    # Only ``image: true`` implies a local Dockerfile.
+    (
+        "image: images.scrapinghub.com/project/12345",
+        f"FROM {STACK_IMAGE}:2.12",
+        NO_ISSUE,
+    ),
+    # Without an image, the Dockerfile is not what gets deployed.
+    (
+        f"stack: {LATEST_KNOWN_STACK}\nrequirements:\n  file: requirements.txt",
+        f"FROM {STACK_IMAGE}:2.12",
+        MISSING_STACK_ISSUE,
+    ),
+)
 
 CASES = [
     # Config content
@@ -50,6 +98,7 @@ CASES = [
                 (config, NO_ISSUE)
                 for config in (
                     "image: custom:latest",
+                    "image: true",
                     "\n".join(
                         [
                             "image: custom:latest",
@@ -561,6 +610,7 @@ CASES = [
             (
                 *default_issues(),
                 MISSING_STACK_ISSUE,
+                *([INSECURE_SCRAPY_ISSUE] if requirement.startswith("==") else []),
                 *iter_issues(issues),
             ),
             {},
@@ -605,6 +655,67 @@ CASES = [
             # nothing to compare.
             (LATEST_KNOWN_STACK, ">=2.11.2", NO_ISSUE),
             ("scrapy:latest", "==2.11.2", issue("SCP20 stack not frozen", column=7)),
+        )
+    ),
+    # Dockerfile
+    *(
+        (
+            (
+                File(config, "scrapinghub.yml"),
+                File("", "scrapy.cfg"),
+                File("", "requirements.txt"),
+                File(dockerfile, "Dockerfile"),
+            ),
+            (
+                *default_issues(),
+                *iter_issues(issues),
+            ),
+            {},
+        )
+        for config, dockerfile, issues in DOCKERFILE_CASES
+    ),
+    # Custom images only skip the stack and requirements keys themselves
+    *(
+        (
+            (
+                File(config, "scrapinghub.yml"),
+                File("", "scrapy.cfg"),
+                File("", "requirements.txt"),
+            ),
+            (
+                *default_issues(),
+                *iter_issues(issues),
+            ),
+            {},
+        )
+        for config, issues in (
+            (
+                "\n".join(
+                    [
+                        "image: true",
+                        "requirements:",
+                        "  file: missing-requirements.txt",
+                    ],
+                ),
+                issue("SCP25 unexisting requirements.file", line=3, column=8),
+            ),
+            (
+                "\n".join(
+                    [
+                        "image: true",
+                        "projects:",
+                        "  default:",
+                        "    requirements:",
+                        "      eggs:",
+                        "      - a.egg",
+                    ],
+                ),
+                issue(
+                    "SCP23 invalid scrapinghub.yml: no requirements.file key",
+                    line=5,
+                    column=6,
+                ),
+            ),
         )
     ),
 ]
