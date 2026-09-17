@@ -1,27 +1,27 @@
 .. _scp75:
 
-==============================
-SCP75: Missing provider params
-==============================
+==================
+SCP75: Removed API
+==================
 
 What it does
 ============
 
-When using :doc:`scrapy-zyte-api <scrapy-zyte-api:index>` together with
-:doc:`scrapy-poet <scrapy-poet:index>`, reports :reqmeta:`zyte_api_automap`
-params set without :reqmeta:`zyte_api_provider` params on a request whose
-callback, defined in the same module, takes page object or item parameters,
-i.e. parameters whose type hint comes from :doc:`web-poet <web-poet:index>`,
-scrapy-poet or :doc:`zyte-common-items <zyte-common-items:index>`.
+Reports uses of an API that has been removed from the package versions frozen
+in your project requirements but does exist in lower versions of those
+packages.
+
+It also reports the package that defined the API, the version in which the API
+was deprecated, and the version in which it was removed, so that you can check
+the corresponding release notes for sunset guidance.
 
 
 Why is this bad?
 ================
 
-Such a callback gets its response from the automap request and its page
-objects from a separate request that the scrapy-poet provider sends. The
-provider ignores automap params, so a param meant for the whole request, such
-as ``geolocation``, applies to one of those requests and not to the other.
+Removed APIs no longer work. Depending on the API, your project either
+misbehaves or raises an exception, such as ``TypeError: Unexpected options:
+binary`` for the example below.
 
 
 Example
@@ -29,26 +29,21 @@ Example
 
 .. code-block:: python
 
-    class MySpider(Spider):
-        async def start(self):
-            yield Request(
-                "https://toscrape.com/",
-                self.parse_product,
-                meta={"zyte_api_automap": {"geolocation": "ie"}},
-            )
+    from scrapy.exporters import PythonItemExporter
 
-        def parse_product(self, response, product: Product):
-            yield product
+    exporter = PythonItemExporter(binary=False)
 
-Set the param for both requests:
+Use instead:
 
 .. code-block:: python
 
-    yield Request(
-        "https://toscrape.com/",
-        self.parse_product,
-        meta={
-            "zyte_api_automap": {"geolocation": "ie"},
-            "zyte_api_provider": {"geolocation": "ie"},
-        },
-    )
+    from scrapy.exporters import PythonItemExporter
+
+    exporter = PythonItemExporter()
+
+
+Fix
+===
+
+This rule is automatically fixable with the ``--fix`` command-line option for
+removed parameters that only need to be dropped, like the one above.

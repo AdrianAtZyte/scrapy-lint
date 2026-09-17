@@ -1,29 +1,33 @@
 .. _scp74:
 
-============================
-SCP74: Unused automap params
-============================
+=====================
+SCP74: Deprecated API
+=====================
 
 What it does
 ============
 
-When using :doc:`scrapy-zyte-api <scrapy-zyte-api:index>` together with
-:doc:`scrapy-poet <scrapy-poet:index>`, reports :reqmeta:`zyte_api_automap`
-params on a request whose callback, defined in the same module, type-hints a
-parameter as :class:`~scrapy_poet.DummyResponse`.
+Reports uses of an API that is deprecated in the package versions frozen in
+your project requirements.
+
+It also reports the package and version in which the API was deprecated, so
+that you can check the corresponding release notes for sunset guidance.
+
+Sometimes sunset guidance is also provided in the error message.
+
+Where migrating is already possible in lower versions, uses are reported as a
+:ref:`discouraged API <scp77>` until the deprecation version.
 
 
 Why is this bad?
 ================
 
-:class:`~scrapy_poet.DummyResponse` tells scrapy-poet that the callback does
-not use the response, so scrapy-poet skips the download and the params are
-never sent to Zyte API. The page objects that the callback does use are
-fetched by the scrapy-poet provider, which reads :reqmeta:`zyte_api_provider`.
+Deprecated APIs will stop working in future versions of the corresponding
+package.
 
-The params look like they apply, but they do not. A ``geolocation`` meant to
-determine which version of a website to scrape is silently ignored, and the
-data you get back is not the data you asked for.
+If you do not follow sunset guidance now to migrate away from the deprecated
+API, the next time you upgrade the corresponding package your project could
+break or misbehave.
 
 
 Example
@@ -31,33 +35,14 @@ Example
 
 .. code-block:: python
 
-    class MySpider(Spider):
-        async def start(self):
-            yield Request(
-                "https://toscrape.com/",
-                self.parse_product,
-                meta={"zyte_api_automap": {"geolocation": "ie"}},
-            )
+    from scrapy.exporters import PythonItemExporter
 
-        def parse_product(self, response: DummyResponse, product: Product):
-            yield product
+    exporter = PythonItemExporter(binary=True)
 
-Use :reqmeta:`zyte_api_provider`:
+Use instead:
 
 .. code-block:: python
 
-    yield Request(
-        "https://toscrape.com/",
-        self.parse_product,
-        meta={"zyte_api_provider": {"geolocation": "ie"}},
-    )
+    from scrapy.exporters import PythonItemExporter
 
-
-Known limitations
-=================
-
-A page object can declare :class:`~web_poet.page_inputs.http.HttpResponse` as
-a dependency, in which case scrapy-poet does download the response and the
-automap params do apply. Finding that out means following imports across
-files, which this rule does not do, so mark the file with
-:ref:`per-file-ignores` if you hit it.
+    exporter = PythonItemExporter(binary=False)

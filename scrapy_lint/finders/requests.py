@@ -3,7 +3,7 @@ from __future__ import annotations
 from ast import AST, Attribute, Call, Constant, Dict, Name, Subscript, Tuple, arg, expr
 from typing import TYPE_CHECKING
 
-from scrapy_lint.ast import is_dict, iter_dict
+from scrapy_lint.ast import get_func_name, is_dict, iter_dict
 from scrapy_lint.issues import (
     MISSING_PROVIDER_PARAMS,
     UNSAFE_META_COPY,
@@ -21,14 +21,6 @@ if TYPE_CHECKING:
 
 PAGE_OBJECT_PACKAGES = frozenset({"scrapy_poet", "web_poet", "zyte_common_items"})
 FOLLOW_FUNCTIONS = frozenset({"follow", "follow_all"})
-
-
-def get_func_name(f: expr) -> str | None:
-    if hasattr(f, "attr"):
-        return f.attr
-    if hasattr(f, "id"):
-        return f.id
-    return None
 
 
 def is_request_construction(node: Call) -> bool:

@@ -63,11 +63,16 @@ CASES: Cases = (
                     for column in (39, 51)
                 ),
             ),
-            # SCP49 deprecated import: not deprecated yet
+            # SCP77 discouraged API: not deprecated yet, but never meant to
+            # be imported
             (
                 "scrapy==2.16.0",
                 "from scrapy.utils.ssl import x509name_to_string",
-                NO_ISSUE,
+                ExpectedIssue(
+                    "SCP77 discouraged API: to be deprecated in scrapy 2.17.0",
+                    column=29,
+                    path=PATH,
+                ),
             ),
             # SCP49 deprecated import: no version in requirements.txt
             (
