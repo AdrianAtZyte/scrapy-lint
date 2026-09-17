@@ -83,3 +83,7 @@ If not specified, a requirements file is looked up as follows:
 
 #.  The ``requirements.txt`` file in the project root directory, i.e. where
     ``scrapy.cfg`` lives.
+
+If no requirements file is found, dependencies are read from the ``project``
+section of :file:`pyproject.toml`, i.e. from ``dependencies`` and
+``optional-dependencies``.
