@@ -43,6 +43,9 @@ reports at once. To add them all to the ``known-settings`` option of
 
     scrapy-lint --add-known-settings
 
+Output is colored when writing to a terminal. Set ``NO_COLOR`` to disable
+colors, or ``FORCE_COLOR`` to keep them when redirecting output.
+
 To use with `pre-commit <https://pre-commit.com/>`__, add the following to your
 ``.pre-commit-config.yaml``:
 

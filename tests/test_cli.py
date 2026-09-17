@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from scrapy_lint import main
+from scrapy_lint import lint, main
 
 from . import File, project
 
@@ -22,6 +22,12 @@ def test_issue(capsys):
     assert out == "a.py:1:9: SCP27 unknown setting: FOO\n"
     assert not err
     assert excinfo.value.code == 1
+
+
+def test_issue_str():
+    with project(File("settings['FOO']", "a.py")):
+        issues = list(lint([]))
+    assert [str(issue) for issue in issues] == ["a.py:1:9: SCP27 unknown setting: FOO"]
 
 
 def test_target_paths(capsys):
@@ -60,6 +66,30 @@ def test_rule_ignore(capsys):
 def test_file_rule_ignore(capsys):
     file = File("settings['FOO']", "a.py")
     options = {"per-file-ignores": {"a.py": ["SCP27"]}}
+    with project(file, options):
+        main([])
+    out, err = capsys.readouterr()
+    assert not out
+    assert not err
+
+
+def test_file_rule_ignore_pattern(capsys):
+    files = [
+        File("settings['FOO']", "spiders/a.py"),
+        File("settings['BAR']", "b.py"),
+    ]
+    options = {"per-file-ignores": {"spiders/": ["SCP27"]}}
+    with project(files, options), pytest.raises(SystemExit) as excinfo:
+        main([])
+    out, err = capsys.readouterr()
+    assert out == "b.py:1:9: SCP27 unknown setting: BAR\n"
+    assert not err
+    assert excinfo.value.code == 1
+
+
+def test_file_rule_ignore_overlapping_patterns(capsys):
+    file = File('allowed_domains = ["https://toscrape.com/"]\nsettings["FOO"]', "a.py")
+    options = {"per-file-ignores": {"*.py": ["SCP02"], "a.py": ["SCP27"]}}
     with project(file, options):
         main([])
     out, err = capsys.readouterr()
@@ -159,11 +189,33 @@ def test_add_known_settings_option_with_remaining(capsys):
         main(["--add-known-settings"])
     out, err = capsys.readouterr()
     assert out == (
-        "b.py:1:19: SCP02 URL in allowed_domains\n"
+        "b.py:1:19: SCP02 URL in allowed_domains [*]\n"
         "Added 1 setting(s) to known-settings.\n"
     )
     assert not err
     assert excinfo.value.code == 1
+
+
+def test_color(capsys, monkeypatch):
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    file = File('allowed_domains = ["https://toscrape.com/"]\n', "a.py")
+    with project(file), pytest.raises(SystemExit):
+        main([])
+    out, _ = capsys.readouterr()
+    assert out == (
+        "\033[1ma.py:1:19\033[0m: \033[31mSCP02\033[0m URL in allowed_domains"
+        " \033[36m[*]\033[0m\n"
+        "\033[36m[*]\033[0m 1 fixable with the `--fix` option.\n"
+    )
+
+
+def test_no_color(capsys, monkeypatch):
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    monkeypatch.setenv("NO_COLOR", "1")
+    with project(File("settings['FOO']", "a.py")), pytest.raises(SystemExit):
+        main([])
+    out, _ = capsys.readouterr()
+    assert out == "a.py:1:9: SCP27 unknown setting: FOO\n"
 
 
 def test_syntax_error(capsys):
