@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from inspect import cleandoc
 
-from . import NO_ISSUE, Cases, ExpectedIssue, File, cases, iter_issues
+from . import (
+    NO_ISSUE,
+    Cases,
+    ExpectedIssue,
+    File,
+    cases,
+    insecure_scrapy_issues,
+    iter_issues,
+)
 from .helpers import check_project
 
 DEPRECATION_VERSION = "2.14.0"
@@ -30,7 +38,11 @@ CASES: Cases = (
                 File(f"scrapy=={version}", path="requirements.txt"),
                 File(cleandoc(code), path="a.py"),
             ),
-            (PARTIAL_FREEZE, *iter_issues(issues)),
+            (
+                PARTIAL_FREEZE,
+                *insecure_scrapy_issues(f"scrapy=={version}"),
+                *iter_issues(issues),
+            ),
             {},
         )
         for version, code, issues in (
