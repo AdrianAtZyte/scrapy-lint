@@ -234,8 +234,9 @@ def check() -> Generator[Issue]:
         return
     context = Context(project)
     checker = SettingChecker(context)
+    relative_file = config_file.relative_to(project.path)
     for issue in _check(groups, checker):
-        if context.is_ignored(issue, config_file):
+        if context.is_ignored(issue, relative_file):
             continue
-        issue.file = config_file.relative_to(project.path)
+        issue.file = relative_file
         yield issue

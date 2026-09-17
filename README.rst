@@ -37,6 +37,9 @@ the output, and you can apply their fixes with the ``--fix`` option::
 
     scrapy-lint --fix
 
+Output is colored when writing to a terminal. Set ``NO_COLOR`` to disable
+colors, or ``FORCE_COLOR`` to keep them when redirecting output.
+
 There is also a separate subcommand that checks your project against `Scrapy
 Cloud <https://www.zyte.com/scrapy-cloud/>`_::
 
