@@ -20,7 +20,7 @@ PARTIAL_FREEZE = ExpectedIssue(
 )
 
 
-def deprecated_argument_issue(line: int, column: int) -> ExpectedIssue:
+def issue(line: int, column: int) -> ExpectedIssue:
     return ExpectedIssue(
         f"SCP51 deprecated argument: deprecated in scrapy "
         f"{DEPRECATION_VERSION}; keep the crawler from from_crawler() and use "
@@ -31,7 +31,7 @@ def deprecated_argument_issue(line: int, column: int) -> ExpectedIssue:
     )
 
 
-DEPRECATED_ARGUMENT_CASES: Cases = (
+CASES: Cases = (
     *(
         (
             (
@@ -85,16 +85,16 @@ DEPRECATED_ARGUMENT_CASES: Cases = (
                     pass
             """,
                 (
-                    deprecated_argument_issue(2, 39),
-                    deprecated_argument_issue(5, 50),
-                    deprecated_argument_issue(8, 52),
-                    deprecated_argument_issue(11, 45),
-                    deprecated_argument_issue(14, 60),
-                    deprecated_argument_issue(17, 60),
-                    deprecated_argument_issue(20, 33),
-                    deprecated_argument_issue(23, 26),
-                    deprecated_argument_issue(26, 27),
-                    deprecated_argument_issue(29, 35),
+                    issue(2, 39),
+                    issue(5, 50),
+                    issue(8, 52),
+                    issue(11, 45),
+                    issue(14, 60),
+                    issue(17, 60),
+                    issue(20, 33),
+                    issue(23, 26),
+                    issue(26, 27),
+                    issue(29, 35),
                 ),
             ),
             # Keyword-only and positional-only parameters.
@@ -113,7 +113,7 @@ DEPRECATED_ARGUMENT_CASES: Cases = (
                 def close_spider(self, *, spider=None):
                     pass
             """,
-                deprecated_argument_issue(4, 39),
+                issue(4, 39),
             ),
             # Older Scrapy versions.
             (
@@ -151,71 +151,6 @@ DEPRECATED_ARGUMENT_CASES: Cases = (
 )
 
 
-def deprecated_method_issue(line: int, column: int) -> ExpectedIssue:
-    return ExpectedIssue(
-        "SCP52 deprecated method: deprecated in scrapy 2.16.0; "
-        "use form2request instead",
-        line=line,
-        column=column,
-        path="a.py",
-    )
-
-
-DEPRECATED_METHOD_CASES: Cases = tuple(
-    (
-        File(cleandoc(code), path="a.py"),
-        tuple(iter_issues(issues)),
-        {},
-    )
-    for code, issues in (
-        # Every supported way to reach the class.
-        (
-            """
-            from scrapy import FormRequest
-            from scrapy.http import FormRequest as AliasedFormRequest
-            import scrapy
-
-            FormRequest.from_response(response)
-            AliasedFormRequest.from_response(response)
-            scrapy.FormRequest.from_response(response)
-            scrapy.http.FormRequest.from_response(response)
-            """,
-            (
-                deprecated_method_issue(5, 0),
-                deprecated_method_issue(6, 0),
-                deprecated_method_issue(7, 0),
-                deprecated_method_issue(8, 0),
-            ),
-        ),
-        # Same method name on something else, and the class without the method.
-        (
-            """
-            from scrapy import FormRequest
-
-            Foo.from_response(response)
-            from_response(response)
-            FormRequest(url)
-            """,
-            NO_ISSUE,
-        ),
-        # An alias of a class that is not FormRequest.
-        (
-            """
-            from scrapy import Request as FormRequest2
-
-            FormRequest2.from_response(response)
-            """,
-            NO_ISSUE,
-        ),
-    )
-)
-
-
-@cases(DEPRECATED_ARGUMENT_CASES)
-def test_deprecated_argument(files, expected, options):
-    check_project(files, expected, options)
-
-
-@cases(DEPRECATED_METHOD_CASES)
-def test_deprecated_method(files, expected, options):
+@cases(CASES)
+def test(files, expected, options):
     check_project(files, expected, options)

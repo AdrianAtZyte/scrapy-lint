@@ -8,11 +8,6 @@ from .helpers import check_project
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-DEPRECATED_METHOD = ExpectedIssue(
-    "SCP52 deprecated method: deprecated in scrapy 2.16.0; use form2request instead",
-    path="a.py",
-)
-
 ALL_REQUEST_CLASSES = (
     "Request",
     "scrapy.Request",
@@ -299,24 +294,15 @@ CASES: Cases = (
             # FormRequest.from_response() calls with lambda callbacks/errbacks (keyword-only)
             (
                 "FormRequest.from_response(response, callback=lambda x: x)",
-                [
-                    ExpectedIssue("SCP05 lambda callback", column=45, path=path),
-                    DEPRECATED_METHOD,
-                ],
+                ExpectedIssue("SCP05 lambda callback", column=45, path=path),
             ),
             (
                 "FormRequest.from_response(response, errback=lambda x: x)",
-                [
-                    ExpectedIssue("SCP05 lambda callback", column=44, path=path),
-                    DEPRECATED_METHOD,
-                ],
+                ExpectedIssue("SCP05 lambda callback", column=44, path=path),
             ),
             (
                 "scrapy.FormRequest.from_response(response, callback=lambda x: x)",
-                [
-                    ExpectedIssue("SCP05 lambda callback", column=52, path=path),
-                    DEPRECATED_METHOD,
-                ],
+                ExpectedIssue("SCP05 lambda callback", column=52, path=path),
             ),
             (
                 "self.FormRequest.from_response(response, callback=lambda x: x)",
@@ -328,27 +314,20 @@ CASES: Cases = (
                 [
                     ExpectedIssue("SCP05 lambda callback", column=45, path=path),
                     ExpectedIssue("SCP05 lambda callback", column=66, path=path),
-                    DEPRECATED_METHOD,
                 ],
             ),
             # from_response() with form data and lambda callback
             (
                 "FormRequest.from_response(response, formdata={'key': 'value'}, callback=lambda x: x)",
-                [
-                    ExpectedIssue("SCP05 lambda callback", column=72, path=path),
-                    DEPRECATED_METHOD,
-                ],
+                ExpectedIssue("SCP05 lambda callback", column=72, path=path),
             ),
             # from_response() with non-lambda callbacks (should not trigger)
-            (
-                "FormRequest.from_response(response, callback=self.parse)",
-                DEPRECATED_METHOD,
-            ),
+            ("FormRequest.from_response(response, callback=self.parse)", NO_ISSUE),
             (
                 "FormRequest.from_response(response, errback=self.error_handler)",
-                DEPRECATED_METHOD,
+                NO_ISSUE,
             ),
-            ("FormRequest.from_response(response, callback=None)", DEPRECATED_METHOD),
+            ("FormRequest.from_response(response, callback=None)", NO_ISSUE),
             # from_response() on other objects with lambda (pragmatic approach - should trigger)
             (
                 "obj.from_response(response, callback=lambda x: x)",
@@ -359,10 +338,10 @@ CASES: Cases = (
                 ExpectedIssue("SCP05 lambda callback", column=46, path=path),
             ),
             # from_response() without callback/errback keywords should not trigger
-            ("FormRequest.from_response(response)", DEPRECATED_METHOD),
+            ("FormRequest.from_response(response)", NO_ISSUE),
             (
                 "FormRequest.from_response(response, formdata={'key': 'value'})",
-                DEPRECATED_METHOD,
+                NO_ISSUE,
             ),
         )
     ),

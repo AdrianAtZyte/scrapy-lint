@@ -23,7 +23,7 @@ from .finders.domains import (
 )
 from .finders.imports import ImportIssueFinder
 from .finders.items import DocumentationCommentIssueFinder
-from .finders.methods import DeprecatedArgumentIssueFinder, DeprecatedMethodIssueFinder
+from .finders.methods import DeprecatedArgumentIssueFinder
 from .finders.oldstyle import (
     OldSelectorIssueFinder,
     find_extract_then_index_issues,
@@ -63,7 +63,6 @@ class PythonIssueFinder(NodeVisitor):
         super().__init__()
         self.issues: list[Issue] = []
         api_issue_finder = APIIssueFinder(context, source)
-        deprecated_method_issue_finder = DeprecatedMethodIssueFinder()
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
@@ -78,7 +77,6 @@ class PythonIssueFinder(NodeVisitor):
                 UrlInAllowedDomainsIssueFinder(source),
             ],
             "Call": [
-                deprecated_method_issue_finder,
                 find_get_first_by_index_issues,
                 lambda_callback_issue_finder,
                 api_issue_finder,
@@ -105,7 +103,6 @@ class PythonIssueFinder(NodeVisitor):
                 import_issue_finder,
             ],
             "ImportFrom": [
-                deprecated_method_issue_finder,
                 import_issue_finder,
             ],
             "Subscript": [
