@@ -80,8 +80,7 @@ class Project:
     @cached_property
     def dockerfile_stacks(self) -> list[tuple[int, int, str]]:
         """Line, column and tag of every stack image the Dockerfile builds on."""
-        if not self.dockerfile:
-            return []
+        assert self.dockerfile is not None
         text = self.dockerfile.read_text(encoding="utf-8", errors="ignore")
         return list(_iter_stack_images(text))
 
