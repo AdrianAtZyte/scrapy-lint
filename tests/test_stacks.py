@@ -176,7 +176,7 @@ def test_issue(monkeypatch: pytest.MonkeyPatch) -> None:
         [
             File("", path="scrapy.cfg"),
             File(SCRAPINGHUB_YML, path="scrapinghub.yml"),
-            File("scrapy==2.13.3\ntwisted==18.9.0\n", path="requirements.txt"),
+            File("twisted==18.9.0\n", path="requirements.txt"),
         ],
         [
             ExpectedIssue(

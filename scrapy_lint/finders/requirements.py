@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from scrapy_lint._stacks import find_conflict, stack_data
-from scrapy_lint.data.packages import PACKAGES
+from scrapy_lint.context import _find_image
+from scrapy_lint.data.packages import PACKAGES, VERSION_CONFLICTS
 from scrapy_lint.issues import (
+    INCOMPATIBLE_REQUIREMENT,
     INSECURE_REQUIREMENT,
     PARTIAL_FREEZE,
     STACK_REQUIREMENT_CONFLICT,
@@ -47,7 +49,7 @@ class RequirementsIssueFinder:
 
     def lint(self, file: Path) -> Generator[Issue]:
         packages: set[str] = set()
-        pins: dict[str, Version] = {}
+        pins: dict[str, tuple[Version, int]] = {}
         try:
             requirements_text = file.read_text(encoding="utf-8")
         except UnicodeDecodeError:
@@ -58,17 +60,20 @@ class RequirementsIssueFinder:
             packages.add(name)
             version = pinned_version(requirement)
             if version is not None:
-                pins[name] = version
+                pins[name] = (version, line_number)
             if name not in PACKAGES:
                 continue
             yield from self.check_package_name(name, line_number)
             if version is None:
                 continue
             yield from self.check_package_version(name, version, line_number)
+        yield from self.check_version_conflicts(pins)
         missing_deps = self.REQUIRED_DEPENDENCIES - packages
         if missing_deps or not packages:
             yield Issue(PARTIAL_FREEZE)
-        yield from self.check_stack_requirement_conflicts(pins)
+        yield from self.check_stack_requirement_conflicts(
+            {name: version for name, (version, _) in pins.items()},
+        )
 
     def check_package_name(self, name: str, line: int) -> Generator[Issue]:
         package = PACKAGES[name]
@@ -101,12 +106,36 @@ class RequirementsIssueFinder:
             detail = f"{name} {package.lowest_safe_version} implements security fixes"
             yield Issue(INSECURE_REQUIREMENT, pos, detail)
 
+    @staticmethod
+    def check_version_conflicts(
+        versions: dict[str, tuple[Version, int]],
+    ) -> Generator[Issue]:
+        for conflict in VERSION_CONFLICTS:
+            package = versions.get(conflict.package)
+            dependency = versions.get(conflict.dependency)
+            if (
+                package is None
+                or dependency is None
+                or package[0] < conflict.since
+                or dependency[0] >= conflict.lowest_compatible
+            ):
+                continue
+            detail = (
+                f"{conflict.package} {conflict.since}+ requires "
+                f"{conflict.dependency} {conflict.lowest_compatible}+"
+            )
+            yield Issue(INCOMPATIBLE_REQUIREMENT, Pos(dependency[1]), detail)
+
     def check_stack_requirement_conflicts(
         self,
         pins: dict[str, Version],
     ) -> Generator[Issue]:
         config = self.context.project.scrapy_cloud_config
-        if not self.context.project.path or not config or has_image(config):
+        if (
+            not self.context.project.path
+            or not config
+            or _find_image(config) is not False
+        ):
             return
         value = _configured_stack(config)
         if not value:
@@ -127,14 +156,3 @@ def _configured_stack(config: Any) -> str | None:
         stacks = config.get("stacks")
         value = stacks.get("default") if isinstance(stacks, dict) else None
     return value if isinstance(value, str) else None
-
-
-def has_image(d):
-    if isinstance(d, dict):
-        if "image" in d:
-            return d["image"]
-        for v in d.values():
-            result = has_image(v)
-            if result is not False:
-                return result
-    return False
