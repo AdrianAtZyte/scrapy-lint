@@ -1090,6 +1090,7 @@ SETTINGS = {
             deprecated_in=Version("2.17.0"),
             sunset_guidance="set follow=False in your rules instead",
         ),
+        discouraged_in=UNKNOWN_UNSUPPORTED_VERSION,
     ),
     "DNS_RESOLVER": Setting(
         type=SettingType.OBJ,
@@ -1122,6 +1123,7 @@ SETTINGS = {
                 "use the memusage_warning_reached and spider_closed signals instead"
             ),
         ),
+        discouraged_in=UNKNOWN_UNSUPPORTED_VERSION,
     ),
     "CONCURRENT_REQUESTS_PER_IP": Setting(
         type=SettingType.INT,
@@ -1130,6 +1132,7 @@ SETTINGS = {
             deprecated_in=Version("2.14.0"),
             sunset_guidance="use CONCURRENT_REQUESTS_PER_DOMAIN instead",
         ),
+        discouraged_in=UNKNOWN_UNSUPPORTED_VERSION,
     ),
     "FEED_FORMAT": Setting(
         type=SettingType.STR,
