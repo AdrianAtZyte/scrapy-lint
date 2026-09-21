@@ -31,6 +31,8 @@ class Versioning:
     added_in: Version | None = None
     deprecated_in: Version | UnknownUnsupportedVersion | None = None
     removed_in: Version | None = None
+    # Version that reverted the deprecation.
+    undeprecated_in: Version | None = None
     sunset_guidance: str | None = None
     # Version from which None became a valid value for a setting whose type
     # does not allow None otherwise.
@@ -57,6 +59,9 @@ def check_sunset(
         id_ = removed_id
         detail = f"removed in {package} {removed_in}"
     else:
+        undeprecated_in = versioning.undeprecated_in
+        if undeprecated_in and version >= undeprecated_in:
+            return
         suffix = ""
         if isinstance(deprecated_in, UnknownUnsupportedVersion):
             deprecated_in = PACKAGES[package].lowest_supported_version
@@ -74,8 +79,11 @@ def check_sunset(
                 id_ = removed_id
             else:
                 id_ = deprecated_id
-    if versioning.sunset_guidance:
-        detail += f"; {versioning.sunset_guidance}"
+    guidance = versioning.sunset_guidance
+    if not guidance and (replacement := getattr(entry, "replacement", None)):
+        guidance = f"use {replacement} instead"
+    if guidance:
+        detail += f"; {guidance}"
     yield Issue(id_, pos, detail)
 
 
