@@ -640,7 +640,6 @@ SETTINGS = {
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
     ),
-    "MEMDEBUG_NOTIFY": Setting(type=SettingType.LIST, default_value=VersionedValue([])),
     "MEMUSAGE_CHECK_INTERVAL_SECONDS": Setting(
         type=SettingType.FLOAT,
         default_value=VersionedValue(60.0),
@@ -1154,6 +1153,11 @@ SETTINGS = {
         ),
     ),
     # Removed Scrapy built-in settings, in reverse removal order.
+    "MEMDEBUG_NOTIFY": Setting(
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(removed_in=Version("2.18.0")),
+    ),
     "AJAXCRAWL_ENABLED": Setting(
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
