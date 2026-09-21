@@ -6,6 +6,7 @@ SCRAPY_ZYTE_API_ADDON = Addon(
     package="scrapy-zyte-api",
     priority=500,
     added_in=Version("0.17.0"),
+    after=frozenset({"scrapy-poet"}),
     settings=VersionedSettings(
         history={
             Version("0.19.0"): {
@@ -54,6 +55,7 @@ ADDONS = {
         package="duplicate-url-discarder",
         priority=600,
         added_in=Version("0.1.0"),
+        after=frozenset({"scrapy-poet", "scrapy-zyte-api"}),
         settings=VersionedSettings(
             history={
                 Version("0.2.0"): {

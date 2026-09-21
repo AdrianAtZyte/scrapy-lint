@@ -48,6 +48,8 @@ class Addon:
     settings: VersionedSettings
     priority: int
     added_in: Version | None = None
+    after: frozenset[str] = frozenset()
+    """Packages whose add-on must run before this one."""
 
     def get_settings(self, project: Project) -> set[str]:
         if self.package not in project.frozen_requirements:
