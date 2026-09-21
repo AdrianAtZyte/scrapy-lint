@@ -100,7 +100,7 @@ per-file-ignores = [
     "docs/conf.py:invalid-name",
     "scrapy_lint/apis.py:too-many-instance-attributes",
     "scrapy_lint/settings.py:too-many-instance-attributes",
-    "tests/**:duplicate-code",
+    "tests/**:duplicate-code,too-many-lines",
 ]
 
 [tool.pytest.ini_options]
