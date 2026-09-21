@@ -47,9 +47,6 @@ class ImportIssueFinder:
                 REMOVED_IMPORT,
             ):
                 if imported_object.replacement:
-                    issue.detail = (
-                        f"{issue.detail}; use {imported_object.replacement} instead"
-                    )
                     issue.fix = fix
                 yield issue
 
