@@ -1,13 +1,31 @@
 from __future__ import annotations
 
 import re
-from ast import Call, Constant, Dict, Lambda, List, Set, Tuple, UnaryOp, USub, expr
+from ast import (
+    Assign,
+    Call,
+    ClassDef,
+    Constant,
+    Dict,
+    FunctionDef,
+    Import,
+    ImportFrom,
+    Lambda,
+    List,
+    Name,
+    Set,
+    Tuple,
+    UnaryOp,
+    USub,
+    expr,
+    keyword,
+)
 from typing import TYPE_CHECKING, Any, Protocol
 
 from packaging.version import Version
 
-from scrapy_lint.ast import is_dict, iter_dict
-from scrapy_lint.data.settings import FEEDS_KEY_VERSION_ADDED
+from scrapy_lint.ast import extract_literal_value, is_dict, iter_dict
+from scrapy_lint.data.settings import FEEDS_KEY_VERSION_ADDED, SETTINGS
 from scrapy_lint.finders.settings.types import (
     check_component_path,
     has_feed_uri_params,
@@ -519,3 +537,76 @@ VALUE_CHECKERS: dict[str, ValueChecker] = {
     "FEEDS": check_feeds,
     "USER_AGENT": check_user_agent,
 }
+
+
+IssueNode = Constant | Name | keyword | ClassDef | FunctionDef | Import | ImportFrom
+
+
+def build_rename_fix(setting: Setting, node: IssueNode) -> Fix | None:
+    """Build a fix that renames *node*, which spells the name of *setting*, as
+    the setting that replaces it.
+
+    Returns ``None`` (report only, no fix) when the setting has no replacement,
+    or when *node* is not a plain name or single-quoted string literal, e.g. a
+    class definition or an import.
+    """
+    if not setting.replacement:
+        return None
+    assert isinstance(setting.name, str)
+    length = len(setting.name)
+    if isinstance(node, Name):
+        start = Pos.from_node(node)
+        end = Pos(start.line, start.column + length)
+    elif (
+        isinstance(node, Constant)
+        and node.lineno == node.end_lineno
+        and node.end_col_offset == node.col_offset + length + 2
+    ):
+        start = Pos(node.lineno, node.col_offset + 1)
+        end = Pos(node.lineno, node.end_col_offset - 1)
+    else:
+        return None
+    return Fix(
+        [Edit(start, end, setting.replacement)],
+        message=f"rename {setting.name} to {setting.replacement}",
+    )
+
+
+def get_value_replacements(name: str, value: expr) -> dict[str, Any] | None:
+    """Return the settings that replace setting *name* when it takes the
+    literal *value*, or ``None`` when its replacement does not depend on its
+    value or *value* is not a known literal."""
+    setting = SETTINGS.get(name)
+    if not setting or setting.value_replacements is None:
+        return None
+    literal, is_literal = extract_literal_value(value)
+    if not is_literal:
+        return None
+    try:
+        return setting.value_replacements.get(setting.parse(literal))
+    except (ValueError, TypeError):
+        return None
+
+
+def build_assignment_fix(
+    node: Assign,
+    name: str,
+    replacements: dict[str, Any],
+) -> Fix:
+    """Build a fix that replaces *node*, a setting module assignment to
+    *name*, with one assignment per item of *replacements*, or that removes
+    its line when *replacements* is empty."""
+    assert node.end_lineno is not None
+    assert node.end_col_offset is not None
+    if not replacements:
+        start = Pos(node.lineno, 0)
+        end = Pos(node.end_lineno + 1, 0)
+        text = ""
+    else:
+        start = Pos.from_node(node)
+        end = Pos(node.end_lineno, node.end_col_offset)
+        separator = "\n" + " " * node.col_offset
+        text = separator.join(f"{k} = {v!r}" for k, v in replacements.items())
+    return Fix(
+        [Edit(start, end, text)], message=replacement_message(name, replacements)
+    )
