@@ -49,6 +49,7 @@ from scrapy_lint.data.settings import (
     PREDEFINED_SUGGESTIONS,
     SETTINGS,
 )
+from scrapy_lint.fixes import Edit, Fix
 from scrapy_lint.issues import (
     BASE_SETTING_USE,
     DEPRECATED_SETTING,
@@ -56,6 +57,7 @@ from scrapy_lint.issues import (
     IMPROPER_SETTING_DEFINITION,
     INCOMPLETE_PROJECT_THROTTLING,
     LOW_PROJECT_THROTTLING,
+    LOWERCASE_SETTING,
     MISSING_CHANGING_SETTING,
     MISSING_SETTING_REQUIREMENT,
     NO_OP_SETTING_UPDATE,
@@ -69,6 +71,7 @@ from scrapy_lint.issues import (
     SETTING_NEEDS_UPGRADE,
     UNKNOWN_SETTING,
     UNNEEDED_SETTING_GET,
+    WRONG_ADDON_ORDER,
     WRONG_SETTING_METHOD,
     ZYTE_RAW_PARAMS,
     Issue,
@@ -91,16 +94,20 @@ from scrapy_lint.versions import (
     UNKNOWN_FUTURE_VERSION,
     UNKNOWN_UNSUPPORTED_VERSION,
     UnknownUnsupportedVersion,
+    check_sunset,
 )
 
-from .types import TYPE_CHECKERS
-from .values import VALUE_CHECKERS
+from .types import TYPE_CHECKERS, is_allowed_none
+from .values import VALUE_CHECKERS, check_secret
 
 if TYPE_CHECKING:
     from collections.abc import Generator
     from pathlib import Path
 
+    from scrapy_lint.addons import Addon
     from scrapy_lint.context import Context
+
+    AddonEntry = tuple[Addon, str, float, expr]
 
 LineNumber = int
 SESSION_SETTINGS = frozenset(
@@ -113,6 +120,36 @@ SESSION_SETTINGS = frozenset(
 IssueNode = Constant | Name | keyword | ClassDef | FunctionDef | Import | ImportFrom
 
 
+def build_rename_fix(setting: Setting, node: IssueNode) -> Fix | None:
+    """Build a fix that renames *node*, which spells the name of *setting*, as
+    the setting that replaces it.
+
+    Returns ``None`` (report only, no fix) when the setting has no replacement,
+    or when *node* is not a plain name or single-quoted string literal, e.g. a
+    class definition or an import.
+    """
+    if not setting.replacement:
+        return None
+    assert isinstance(setting.name, str)
+    length = len(setting.name)
+    if isinstance(node, Name):
+        start = Pos.from_node(node)
+        end = Pos(start.line, start.column + length)
+    elif (
+        isinstance(node, Constant)
+        and node.lineno == node.end_lineno
+        and node.end_col_offset == node.col_offset + length + 2
+    ):
+        start = Pos(node.lineno, node.col_offset + 1)
+        end = Pos(node.lineno, node.end_col_offset - 1)
+    else:
+        return None
+    return Fix(
+        [Edit(start, end, setting.replacement)],
+        message=f"rename {setting.name} to {setting.replacement}",
+    )
+
+
 class SettingChecker:
     def __init__(self, context: Context) -> None:
         self.context = context
@@ -123,6 +160,11 @@ class SettingChecker:
 
     def is_known_setting(self, name: str) -> bool:
         return name in SETTINGS or name in self.additional_known_settings
+
+    def check_lowercase_name(self, name: str, pos: Pos) -> Generator[Issue]:
+        upper = name.upper()
+        if upper != name and self.is_known_setting(upper):
+            yield Issue(LOWERCASE_SETTING, pos, f"did you mean: {upper}?")
 
     def is_supported_setting(self, name: str) -> bool:
         if not self.project.packages or name not in SETTINGS:
@@ -161,7 +203,12 @@ class SettingChecker:
         matches.sort(key=lambda x: (-x[1], x[0]))
         return [m[0] for m in matches[:MAX_AUTOMATIC_SUGGESTIONS]]
 
-    def check_known_name(self, name: str, pos: Pos) -> Generator[Issue]:
+    def check_known_name(
+        self,
+        name: str,
+        pos: Pos,
+        node: IssueNode,
+    ) -> Generator[Issue]:
         yield from self.check_special_names(name, pos)
         if name not in SETTINGS:
             return
@@ -170,7 +217,7 @@ class SettingChecker:
         yield from self.check_setting_requirement(setting, pos)
         if package not in self.project.frozen_requirements:
             return
-        yield from self.check_setting_versioning(setting, pos)
+        yield from self.check_setting_versioning(setting, pos, node)
 
     def check_special_names(self, name: str, pos: Pos) -> Generator[Issue]:
         if name.endswith("_BASE"):
@@ -187,37 +234,21 @@ class SettingChecker:
         ):
             yield Issue(MISSING_SETTING_REQUIREMENT, pos, package)
 
-    def check_setting_versioning(self, setting, pos: Pos) -> Generator[Issue]:
+    def check_setting_versioning(
+        self,
+        setting,
+        pos: Pos,
+        node: IssueNode,
+    ) -> Generator[Issue]:
         package = setting.package
         added_in = setting.versioning.added_in
-        deprecated_in = setting.versioning.deprecated_in
-        removed_in = setting.versioning.removed_in
-        if not deprecated_in and not added_in:
-            return
         version = self.project.frozen_requirements[package]
         if added_in and version < added_in:
             yield Issue(SETTING_NEEDS_UPGRADE, pos, f"added in {package} {added_in}")
             return
-        if not deprecated_in:
-            return
-        if isinstance(deprecated_in, UnknownUnsupportedVersion):
-            deprecated_in = PACKAGES[package].lowest_supported_version
-            assert deprecated_in
-            if version < deprecated_in:
-                return
-            detail = f"deprecated in {package} {deprecated_in} or lower"
-        else:
-            if version < deprecated_in:
-                return
-            detail = f"deprecated in {package} {deprecated_in}"
-        if removed_in and version >= removed_in:
-            detail += f", removed in {removed_in}"
-            issue = REMOVED_SETTING
-        else:
-            issue = DEPRECATED_SETTING
-        if setting.versioning.sunset_guidance:
-            detail += f"; {setting.versioning.sunset_guidance}"
-        yield Issue(issue, pos, detail)
+        sunset = check_sunset(setting, version, DEPRECATED_SETTING, REMOVED_SETTING)
+        if sunset is not None:
+            yield sunset.issue(pos, fix=build_rename_fix(setting, node))
 
     def check_dict(self, node: expr) -> Generator[Issue]:
         if not is_dict(node):
@@ -244,7 +275,7 @@ class SettingChecker:
         name: Any
         if isinstance(node, tuple):
             resolved_node, import_alias = node
-            name = import_alias.asname if import_alias.asname else import_alias.name
+            name = import_alias.asname or import_alias.name
         else:
             resolved_node = node
             import_alias = None
@@ -273,7 +304,7 @@ class SettingChecker:
                 detail = f"did you mean: {', '.join(suggestions)}?"
             yield Issue(UNKNOWN_SETTING, pos, detail)
             return
-        yield from self.check_known_name(name, pos)
+        yield from self.check_known_name(name, pos, resolved_node)
 
     def check_update(self, node: keyword | Constant) -> Generator[Issue]:
         name = node.value if isinstance(node, Constant) else node.arg
@@ -392,7 +423,11 @@ class SettingChecker:
         if name not in SETTINGS:
             return
         setting = SETTINGS[name]
-        if setting.type is not None:
+        if setting.is_secret:
+            yield from check_secret(node, setting=setting, project=self.project)
+        if setting.type is not None and not is_allowed_none(
+            node, setting, self.project
+        ):
             yield from TYPE_CHECKERS[setting.type](
                 node,
                 setting=setting,
@@ -602,10 +637,11 @@ class SettingModuleIssueFinder(NodeVisitor):
 
     def check_import_statement(self, node: Import | ImportFrom) -> None:
         for import_alias in node.names:
-            name = import_alias.asname if import_alias.asname else import_alias.name
-            if not (name and name.isupper()):
-                continue
+            name = import_alias.asname or import_alias.name
             pos = Pos.from_node(node, import_column(import_alias))
+            if not name.isupper():
+                self.issues.extend(self.setting_checker.check_lowercase_name(name, pos))
+                continue
             self.issues.append(Issue(IMPORTED_SETTING, pos))
             for issue in self.setting_checker.check_name((node, import_alias)):
                 self.issues.append(issue)
@@ -627,9 +663,12 @@ class SettingModuleIssueFinder(NodeVisitor):
         def visit_body(body):
             for child in body:
                 if isinstance(child, (ClassDef, FunctionDef)):
-                    if not child.name.isupper():
-                        continue
                     pos = Pos.from_node(child, definition_column(child))
+                    if not child.name.isupper():
+                        self.issues.extend(
+                            self.setting_checker.check_lowercase_name(child.name, pos)
+                        )
+                        continue
                     self.issues.append(Issue(IMPROPER_SETTING_DEFINITION, pos))
                     issue_generator = self.setting_checker.check_name(child)
                     self.issues.extend(issue_generator)
@@ -650,22 +689,29 @@ class SettingsModuleSettingsProcessor:  # pylint: disable=too-many-instance-attr
         self.context = context
         self.seen_settings: set[str] = set()
         self.robotstxt_obey_values: list[tuple[bool, int, int]] = []
-        self.redundant_values: list[tuple[str, int, int]] = []
+        self.setting_values: list[tuple[str, Any, int, int]] = []
         self.session_enabled = False
         self.session_pool_sizes: list[expr] = []
         self.setting_checker = setting_checker
         self.imports: dict[str, str] = {}
-        self.addon_settings: set[str] = set()
+        # Setting name to the value add-ons leave it at and the package of the
+        # add-on that sets it.
+        self.addon_settings: dict[str, tuple[Any, str]] = {}
 
     def process_assignment(self, assignment: Assign) -> Generator[Issue]:
         for target in assignment.targets:
-            if not (isinstance(target, Name) and target.id.isupper()):
+            if not isinstance(target, Name):
+                continue
+            if not target.id.isupper():
+                yield from self.setting_checker.check_lowercase_name(
+                    target.id, Pos.from_node(target)
+                )
                 continue
             yield from self.setting_checker.check_name(target)
             name = target.id
             self.seen_settings.add(name)
             if name == "ADDONS":
-                self.process_addons(assignment)
+                yield from self.process_addons(assignment)
             yield from self.process_setting(name, assignment)
 
     def resolve_import_path(self, node) -> str:
@@ -676,11 +722,12 @@ class SettingsModuleSettingsProcessor:  # pylint: disable=too-many-instance-attr
         base = self.resolve_import_path(node.value)
         return f"{base}.{node.attr}"
 
-    def process_addons(self, assignment: Assign) -> None:
+    def process_addons(self, assignment: Assign) -> Generator[Issue]:
         if not is_dict(assignment.value):
             return
         assert isinstance(assignment.value, (Call, Dict))
-        for key, _ in iter_dict(assignment.value):
+        entries: list[AddonEntry] = []
+        for key, value in iter_dict(assignment.value):
             import_path = None
             if (
                 isinstance(key, Name)
@@ -694,36 +741,78 @@ class SettingsModuleSettingsProcessor:  # pylint: disable=too-many-instance-attr
                 import_path = self.resolve_import_path(key)
             if import_path not in ADDONS:
                 continue
-            addon_settings = ADDONS[import_path].get_settings(self.context.project)
-            self.addon_settings |= addon_settings
+            addon = ADDONS[import_path]
+            for setting, setting_value in addon.get_settings(
+                self.context.project
+            ).items():
+                self.add_addon_setting(setting, setting_value, addon.package)
+            priority, is_literal = extract_literal_value(value)
+            # A non-literal priority cannot be compared, and None disables the
+            # add-on.
+            if is_literal and isinstance(priority, (int, float)):
+                entries.append((addon, import_path, priority, value))
+        yield from self.check_addon_order(entries)
+
+    def add_addon_setting(self, name: str, value: Any, package: str) -> None:
+        """Record that the add-on from *package* sets *name* to *value*.
+
+        When add-ons disagree about the value, the resulting one is unknown:
+        add-ons are probed in isolation, so what they do together, e.g. which
+        entries they each add to a component priority dict, is not known.
+        """
+        if name in self.addon_settings:
+            known_value, package = self.addon_settings[name]
+            if known_value != value:
+                value = UNKNOWN_SETTING_VALUE
+        self.addon_settings[name] = (value, package)
+
+    @staticmethod
+    def check_addon_order(entries: list[AddonEntry]) -> Generator[Issue]:
+        """Report add-ons that run before an add-on they must run after.
+
+        Scrapy sorts add-ons by priority value with a stable sort, so add-ons
+        sharing a priority value run in definition order.
+        """
+        ranks = {
+            addon.package: (priority, index)
+            for index, (addon, _, priority, _node) in enumerate(entries)
+        }
+        paths = {addon.package: import_path for addon, import_path, _, _node in entries}
+        for index, (addon, import_path, priority, node) in enumerate(entries):
+            for package in sorted(addon.after):
+                if package not in ranks or (priority, index) > ranks[package]:
+                    continue
+                yield Issue(
+                    WRONG_ADDON_ORDER,
+                    Pos.from_node(node),
+                    detail=f"{import_path} must run after {paths[package]}",
+                )
 
     def process_setting(self, name: str, assignment: Assign) -> Generator[Issue]:
         if name == "ROBOTSTXT_OBEY":
             self.process_robotstxt(assignment)
         elif name in SESSION_SETTINGS:
             self.process_session(name, assignment)
-        self.check_redundant_values(name, assignment)
+        self.record_setting_value(name, assignment)
         yield from self.check_throttling(name, assignment)
         yield from self.setting_checker.check_value(name, assignment.value)
 
-    def check_redundant_values(self, name: str, assignment: Assign) -> None:
+    def record_setting_value(self, name: str, assignment: Assign) -> None:
+        """Record the value of *name* for a later comparison against its
+        effective default, which add-ons can only be known to change once the
+        entire settings module has been read."""
         if name not in SETTINGS:
-            return
-        setting_info = SETTINGS[name]
-        default_value = setting_info.get_default_value(self.context.project)
-        if default_value is UNKNOWN_SETTING_VALUE:
             return
         setting_value, is_literal = extract_literal_value(assignment.value)
         if not is_literal:
             return
         try:
-            parsed_value = setting_info.parse(setting_value)
+            parsed_value = SETTINGS[name].parse(setting_value)
         except (ValueError, TypeError):
             return
-        if parsed_value == default_value:
-            self.redundant_values.append(
-                (name, assignment.value.lineno, assignment.value.col_offset),
-            )
+        self.setting_values.append(
+            (name, parsed_value, assignment.value.lineno, assignment.value.col_offset),
+        )
 
     def check_throttling(self, name: str, assignment: Assign) -> Generator[Issue]:
         if name not in {"CONCURRENT_REQUESTS_PER_DOMAIN", "DOWNLOAD_DELAY"}:
@@ -857,17 +946,26 @@ class SettingsModuleSettingsProcessor:  # pylint: disable=too-many-instance-attr
             yield issue
 
     def validate_redundant_values(self) -> Generator[Issue]:
-        for name, line, column in self.redundant_values:
+        for name, value, line, column in self.setting_values:
+            default, detail = self.get_effective_default(name)
+            if default is UNKNOWN_SETTING_VALUE or value != default:
+                continue
             if self.is_changing_setting(name):
                 continue
-            yield Issue(REDUNDANT_SETTING_VALUE, Pos(line, column))
+            yield Issue(REDUNDANT_SETTING_VALUE, Pos(line, column), detail=detail)
+
+    def get_effective_default(self, name: str) -> tuple[Any, str | None]:
+        """Return the value *name* has when the settings module does not set
+        it, and a detail string when an add-on is what sets it."""
+        if name in self.addon_settings:
+            value, package = self.addon_settings[name]
+            return value, f"already set by the {package} add-on"
+        return SETTINGS[name].get_default_value(self.context.project), None
 
     def is_changing_setting(self, name: str) -> bool:
-        assert name in SETTINGS
         setting = SETTINGS[name]
         default = setting.default_value
-        assert not isinstance(default, UnknownSettingValue)
-        if not default or not default.history:
+        if isinstance(default, UnknownSettingValue) or not default.history:
             return False
         history = default.history
         assert len(history) == MAX_DEFAULT_VALUE_HISTORY
@@ -885,9 +983,9 @@ class SettingsModuleSettingsProcessor:  # pylint: disable=too-many-instance-attr
     def process_import(self, node: Import | ImportFrom) -> None:
         if isinstance(node, Import):
             for import_alias in node.names:
-                name = import_alias.asname if import_alias.asname else import_alias.name
+                name = import_alias.asname or import_alias.name
                 self.imports[name] = import_alias.name
         elif isinstance(node, ImportFrom):
             for import_alias in node.names:
-                name = import_alias.asname if import_alias.asname else import_alias.name
+                name = import_alias.asname or import_alias.name
                 self.imports[name] = f"{node.module}.{import_alias.name}"
