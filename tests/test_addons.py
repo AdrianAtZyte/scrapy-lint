@@ -27,3 +27,9 @@ def test_unsupported_version():
 def test_known_version():
     settings = ADDONS["scrapy_zyte_api.Addon"].settings
     assert settings[Version("0.36.0")]["ZYTE_API_TRANSPARENT_MODE"] is True
+
+
+def test_after():
+    packages = {addon.package for addon in ADDONS.values()}
+    for addon in ADDONS.values():
+        assert addon.after <= packages - {addon.package}
