@@ -221,6 +221,9 @@ CASES: Cases = (
                         ("SPIDER_CONTRACTS", '"{}"'),
                         ("SPIDER_CONTRACTS", "{}"),
                         ("SPIDER_CONTRACTS", "None"),
+                        ("ZYTE_API_KEY", "foo"),
+                        ("ZYTE_API_KEY", "foo()"),
+                        ("ZYTE_API_KEY", 'os.environ["ZYTE_API_KEY"]'),
                         # Unknown setting type
                         ("SERVICE_ROOT", "foo"),
                         ("SERVICE_ROOT", "foo()"),
@@ -765,6 +768,18 @@ CASES: Cases = (
                                     13,
                                     "include/exclude list items must be strings",
                                 ),
+                                *(
+                                    ("ZYTE_API_KEY", value, 0, "must be a Zyte API key")
+                                    for value in (
+                                        "''",
+                                        "'YOUR_API_KEY'",
+                                        "'0123456789abcdef0123456789abcde'",
+                                        "'0123456789abcdef0123456789abcdefa'",
+                                        "'0123456789abcdef0123456789abcdeg'",
+                                        "None",
+                                        "123",
+                                    )
+                                ),
                             )
                         ),
                         *(
@@ -810,6 +825,10 @@ CASES: Cases = (
                                 ("FTP_PASSWORD", "'hunter2'"),
                                 ("MAIL_PASS", "'hunter2'"),
                                 ("TELNETCONSOLE_PASSWORD", "'hunter2'"),
+                                (
+                                    "ZYTE_API_KEY",
+                                    "'0123456789abcdef0123456789abcdef'",
+                                ),
                             )
                         ),
                         # SCP42 unneeded path string
