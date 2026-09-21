@@ -56,7 +56,6 @@ from scrapy_lint.issues import (
     IMPORTED_SETTING,
     IMPROPER_SETTING_DEFINITION,
     INCOMPLETE_PROJECT_THROTTLING,
-    INVALID_COMPONENT_DEACTIVATION,
     LOW_PROJECT_THROTTLING,
     LOWERCASE_SETTING,
     MISSING_CHANGING_SETTING,
@@ -87,9 +86,7 @@ from scrapy_lint.settings import (
     SETTING_UPDATERS,
     UNKNOWN_SETTING_VALUE,
     Setting,
-    SettingType,
     UnknownSettingValue,
-    VersionedValue,
     getbool,
 )
 from scrapy_lint.versions import (
@@ -99,7 +96,8 @@ from scrapy_lint.versions import (
     check_sunset,
 )
 
-from .types import OBJECT_KEY_MATCHING_VERSION, TYPE_CHECKERS, is_allowed_none
+from .deactivations import DeactivationChecker
+from .types import TYPE_CHECKERS, is_allowed_none
 from .values import VALUE_CHECKERS, check_secret
 
 if TYPE_CHECKING:
@@ -679,7 +677,7 @@ class SettingModuleIssueFinder(NodeVisitor):
         self.issues.extend(processor.iter_issues())
 
 
-class SettingsModuleSettingsProcessor:
+class SettingsModuleSettingsProcessor:  # pylint: disable=too-many-instance-attributes
     def __init__(self, context: Context, setting_checker: SettingChecker):
         self.context = context
         self.seen_settings: set[str] = set()
@@ -690,8 +688,10 @@ class SettingsModuleSettingsProcessor:
         # Setting name to the value add-ons leave it at and the package of the
         # add-on that sets it.
         self.addon_settings: dict[str, tuple[Any, str]] = {}
-        self.has_unknown_addons = False
-        self.noop_deactivations: list[tuple[str, str, Pos]] = []
+        self.deactivations = DeactivationChecker(
+            context.project,
+            self.resolve_import_path,
+        )
 
     def process_assignment(self, assignment: Assign) -> Generator[Issue]:
         for target in assignment.targets:
@@ -719,7 +719,7 @@ class SettingsModuleSettingsProcessor:
 
     def process_addons(self, assignment: Assign) -> Generator[Issue]:
         if not is_dict(assignment.value):
-            self.has_unknown_addons = True
+            self.deactivations.note_unknown_addon()
             return
         assert isinstance(assignment.value, (Call, Dict))
         entries: list[AddonEntry] = []
@@ -736,7 +736,7 @@ class SettingsModuleSettingsProcessor:
             elif isinstance(key, Attribute):
                 import_path = self.resolve_import_path(key)
             if import_path not in ADDONS:
-                self.has_unknown_addons = True
+                self.deactivations.note_unknown_addon()
                 continue
             addon = ADDONS[import_path]
             for setting, setting_value in addon.get_settings(
@@ -791,60 +791,7 @@ class SettingsModuleSettingsProcessor:
         self.record_setting_value(name, assignment)
         yield from self.check_throttling(name, assignment)
         yield from self.setting_checker.check_value(name, assignment.value)
-        yield from self.check_deactivations(name, assignment.value)
-
-    def check_deactivations(self, name: str, node: expr) -> Generator[Issue]:
-        """Check the keys of *node*, the value of based setting *name*, that
-        are set to None.
-
-        Before Scrapy 2.15.0, a key disables a component of the base setting
-        only if it is the same string the base setting uses, so an object key
-        is reported for projects frozen to such a version. A key the base
-        setting lacks is recorded, to be reported as redundant once the whole
-        module is read and add-ons are known not to enable it either.
-        """
-        setting = SETTINGS.get(name)
-        if (
-            setting is None
-            or setting.type
-            not in {SettingType.BASED_COMP_PRIO_DICT, SettingType.BASED_OBJ_DICT}
-            or not is_dict(node)
-        ):
-            return
-        assert isinstance(node, (Call, Dict))
-        base_keys = self.get_base_keys(setting)
-        version = self.context.project.frozen_requirements.get("scrapy")
-        object_keys_fail = version is not None and version < OBJECT_KEY_MATCHING_VERSION
-        for key, value in iter_dict(node):
-            if not isinstance(value, Constant) or value.value is not None:
-                continue
-            if isinstance(key, Constant) and isinstance(key.value, str):
-                if key.value not in base_keys:
-                    self.noop_deactivations.append(
-                        (name, key.value, Pos.from_node(key))
-                    )
-                continue
-            if not isinstance(key, (Name, Attribute)):
-                continue
-            path = self.resolve_import_path(key)
-            if path not in base_keys:
-                self.noop_deactivations.append((name, path, Pos.from_node(key)))
-            elif object_keys_fail:
-                detail = (
-                    f"before Scrapy {OBJECT_KEY_MATCHING_VERSION}, only {path!r} "
-                    f"disables the base setting entry"
-                )
-                yield Issue(INVALID_COMPONENT_DEACTIVATION, Pos.from_node(key), detail)
-
-    def get_base_keys(self, setting: Setting) -> set[str]:
-        """Return the keys of the base setting of *setting* for the project
-        Scrapy version, or for every known version when it is not frozen."""
-        base = setting.base
-        default = base.get_default_value(self.context.project)
-        if default is not UNKNOWN_SETTING_VALUE:
-            return set(default)
-        assert isinstance(base.default_value, VersionedValue)
-        return set().union(*base.default_value.history.values())
+        yield from self.deactivations.check(name, assignment.value)
 
     def record_setting_value(self, name: str, assignment: Assign) -> None:
         """Record the value of *name* for a later comparison against its
@@ -896,19 +843,7 @@ class SettingsModuleSettingsProcessor:
         yield from self.validate_throttling()
         yield from self.validate_missing_changing_settings()
         yield from self.validate_redundant_values()
-        yield from self.validate_deactivations()
-
-    def validate_deactivations(self) -> Generator[Issue]:
-        """Report keys set to None that neither the base setting nor a known
-        add-on enables, unless an add-on scrapy-lint knows nothing about, or a
-        known one that changes the setting, could be the one enabling them."""
-        if self.has_unknown_addons:
-            return
-        for name, path, pos in self.noop_deactivations:
-            if name in self.addon_settings:
-                continue
-            detail = f"{path!r} is not in {name}_BASE, so there is nothing to disable"
-            yield Issue(REDUNDANT_SETTING_VALUE, pos, detail)
+        yield from self.deactivations.iter_issues(self.addon_settings)
 
     def validate_user_agent(self) -> Generator[Issue]:
         if "USER_AGENT" not in self.seen_settings:
