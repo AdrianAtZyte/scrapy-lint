@@ -241,15 +241,9 @@ class SettingChecker:
         if added_in and version < added_in:
             yield Issue(SETTING_NEEDS_UPGRADE, pos, f"added in {package} {added_in}")
             return
-        for issue in check_sunset(
-            setting,
-            version,
-            pos,
-            DEPRECATED_SETTING,
-            REMOVED_SETTING,
-        ):
-            issue.fix = build_rename_fix(setting, node)
-            yield issue
+        sunset = check_sunset(setting, version, DEPRECATED_SETTING, REMOVED_SETTING)
+        if sunset is not None:
+            yield sunset.issue(pos, fix=build_rename_fix(setting, node))
 
     def check_dict(self, node: expr) -> Generator[Issue]:
         if not is_dict(node):
@@ -690,10 +684,12 @@ class SettingsModuleSettingsProcessor:
         self.context = context
         self.seen_settings: set[str] = set()
         self.robotstxt_obey_values: list[tuple[bool, int, int]] = []
-        self.redundant_values: list[tuple[str, int, int]] = []
+        self.setting_values: list[tuple[str, Any, int, int]] = []
         self.setting_checker = setting_checker
         self.imports: dict[str, str] = {}
-        self.addon_settings: set[str] = set()
+        # Setting name to the value add-ons leave it at and the package of the
+        # add-on that sets it.
+        self.addon_settings: dict[str, tuple[Any, str]] = {}
         self.has_unknown_addons = False
         self.noop_deactivations: list[tuple[str, str, Pos]] = []
 
@@ -743,13 +739,29 @@ class SettingsModuleSettingsProcessor:
                 self.has_unknown_addons = True
                 continue
             addon = ADDONS[import_path]
-            self.addon_settings |= addon.get_settings(self.context.project)
+            for setting, setting_value in addon.get_settings(
+                self.context.project
+            ).items():
+                self.add_addon_setting(setting, setting_value, addon.package)
             priority, is_literal = extract_literal_value(value)
             # A non-literal priority cannot be compared, and None disables the
             # add-on.
             if is_literal and isinstance(priority, (int, float)):
                 entries.append((addon, import_path, priority, value))
         yield from self.check_addon_order(entries)
+
+    def add_addon_setting(self, name: str, value: Any, package: str) -> None:
+        """Record that the add-on from *package* sets *name* to *value*.
+
+        When add-ons disagree about the value, the resulting one is unknown:
+        add-ons are probed in isolation, so what they do together, e.g. which
+        entries they each add to a component priority dict, is not known.
+        """
+        if name in self.addon_settings:
+            known_value, package = self.addon_settings[name]
+            if known_value != value:
+                value = UNKNOWN_SETTING_VALUE
+        self.addon_settings[name] = (value, package)
 
     @staticmethod
     def check_addon_order(entries: list[AddonEntry]) -> Generator[Issue]:
@@ -776,7 +788,7 @@ class SettingsModuleSettingsProcessor:
     def process_setting(self, name: str, assignment: Assign) -> Generator[Issue]:
         if name == "ROBOTSTXT_OBEY":
             self.process_robotstxt(assignment)
-        self.check_redundant_values(name, assignment)
+        self.record_setting_value(name, assignment)
         yield from self.check_throttling(name, assignment)
         yield from self.setting_checker.check_value(name, assignment.value)
         yield from self.check_deactivations(name, assignment.value)
@@ -834,24 +846,22 @@ class SettingsModuleSettingsProcessor:
         assert isinstance(base.default_value, VersionedValue)
         return set().union(*base.default_value.history.values())
 
-    def check_redundant_values(self, name: str, assignment: Assign) -> None:
+    def record_setting_value(self, name: str, assignment: Assign) -> None:
+        """Record the value of *name* for a later comparison against its
+        effective default, which add-ons can only be known to change once the
+        entire settings module has been read."""
         if name not in SETTINGS:
-            return
-        setting_info = SETTINGS[name]
-        default_value = setting_info.get_default_value(self.context.project)
-        if default_value is UNKNOWN_SETTING_VALUE:
             return
         setting_value, is_literal = extract_literal_value(assignment.value)
         if not is_literal:
             return
         try:
-            parsed_value = setting_info.parse(setting_value)
+            parsed_value = SETTINGS[name].parse(setting_value)
         except (ValueError, TypeError):
             return
-        if parsed_value == default_value:
-            self.redundant_values.append(
-                (name, assignment.value.lineno, assignment.value.col_offset),
-            )
+        self.setting_values.append(
+            (name, parsed_value, assignment.value.lineno, assignment.value.col_offset),
+        )
 
     def check_throttling(self, name: str, assignment: Assign) -> Generator[Issue]:
         if name not in {"CONCURRENT_REQUESTS_PER_DOMAIN", "DOWNLOAD_DELAY"}:
@@ -963,17 +973,26 @@ class SettingsModuleSettingsProcessor:
             yield issue
 
     def validate_redundant_values(self) -> Generator[Issue]:
-        for name, line, column in self.redundant_values:
+        for name, value, line, column in self.setting_values:
+            default, detail = self.get_effective_default(name)
+            if default is UNKNOWN_SETTING_VALUE or value != default:
+                continue
             if self.is_changing_setting(name):
                 continue
-            yield Issue(REDUNDANT_SETTING_VALUE, Pos(line, column))
+            yield Issue(REDUNDANT_SETTING_VALUE, Pos(line, column), detail=detail)
+
+    def get_effective_default(self, name: str) -> tuple[Any, str | None]:
+        """Return the value *name* has when the settings module does not set
+        it, and a detail string when an add-on is what sets it."""
+        if name in self.addon_settings:
+            value, package = self.addon_settings[name]
+            return value, f"already set by the {package} add-on"
+        return SETTINGS[name].get_default_value(self.context.project), None
 
     def is_changing_setting(self, name: str) -> bool:
-        assert name in SETTINGS
         setting = SETTINGS[name]
         default = setting.default_value
-        assert not isinstance(default, UnknownSettingValue)
-        if not default or not default.history:
+        if isinstance(default, UnknownSettingValue) or not default.history:
             return False
         history = default.history
         assert len(history) == MAX_DEFAULT_VALUE_HISTORY
