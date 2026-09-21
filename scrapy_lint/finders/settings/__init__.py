@@ -49,6 +49,7 @@ from scrapy_lint.data.settings import (
     PREDEFINED_SUGGESTIONS,
     SETTINGS,
 )
+from scrapy_lint.fixes import Edit, Fix
 from scrapy_lint.issues import (
     BASE_SETTING_USE,
     DEPRECATED_SETTING,
@@ -69,6 +70,7 @@ from scrapy_lint.issues import (
     SETTING_NEEDS_UPGRADE,
     UNKNOWN_SETTING,
     UNNEEDED_SETTING_GET,
+    WRONG_ADDON_ORDER,
     WRONG_SETTING_METHOD,
     ZYTE_RAW_PARAMS,
     Issue,
@@ -101,10 +103,43 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from pathlib import Path
 
+    from scrapy_lint.addons import Addon
     from scrapy_lint.context import Context
+
+    AddonEntry = tuple[Addon, str, float, expr]
 
 LineNumber = int
 IssueNode = Constant | Name | keyword | ClassDef | FunctionDef | Import | ImportFrom
+
+
+def build_rename_fix(setting: Setting, node: IssueNode) -> Fix | None:
+    """Build a fix that renames *node*, which spells the name of *setting*, as
+    the setting that replaces it.
+
+    Returns ``None`` (report only, no fix) when the setting has no replacement,
+    or when *node* is not a plain name or single-quoted string literal, e.g. a
+    class definition or an import.
+    """
+    if not setting.replacement:
+        return None
+    assert isinstance(setting.name, str)
+    length = len(setting.name)
+    if isinstance(node, Name):
+        start = Pos.from_node(node)
+        end = Pos(start.line, start.column + length)
+    elif (
+        isinstance(node, Constant)
+        and node.lineno == node.end_lineno
+        and node.end_col_offset == node.col_offset + length + 2
+    ):
+        start = Pos(node.lineno, node.col_offset + 1)
+        end = Pos(node.lineno, node.end_col_offset - 1)
+    else:
+        return None
+    return Fix(
+        [Edit(start, end, setting.replacement)],
+        message=f"rename {setting.name} to {setting.replacement}",
+    )
 
 
 class SettingChecker:
@@ -160,7 +195,12 @@ class SettingChecker:
         matches.sort(key=lambda x: (-x[1], x[0]))
         return [m[0] for m in matches[:MAX_AUTOMATIC_SUGGESTIONS]]
 
-    def check_known_name(self, name: str, pos: Pos) -> Generator[Issue]:
+    def check_known_name(
+        self,
+        name: str,
+        pos: Pos,
+        node: IssueNode,
+    ) -> Generator[Issue]:
         yield from self.check_special_names(name, pos)
         if name not in SETTINGS:
             return
@@ -169,7 +209,7 @@ class SettingChecker:
         yield from self.check_setting_requirement(setting, pos)
         if package not in self.project.frozen_requirements:
             return
-        yield from self.check_setting_versioning(setting, pos)
+        yield from self.check_setting_versioning(setting, pos, node)
 
     def check_special_names(self, name: str, pos: Pos) -> Generator[Issue]:
         if name.endswith("_BASE"):
@@ -186,20 +226,21 @@ class SettingChecker:
         ):
             yield Issue(MISSING_SETTING_REQUIREMENT, pos, package)
 
-    def check_setting_versioning(self, setting, pos: Pos) -> Generator[Issue]:
+    def check_setting_versioning(
+        self,
+        setting,
+        pos: Pos,
+        node: IssueNode,
+    ) -> Generator[Issue]:
         package = setting.package
         added_in = setting.versioning.added_in
         version = self.project.frozen_requirements[package]
         if added_in and version < added_in:
             yield Issue(SETTING_NEEDS_UPGRADE, pos, f"added in {package} {added_in}")
             return
-        yield from check_sunset(
-            setting,
-            version,
-            pos,
-            DEPRECATED_SETTING,
-            REMOVED_SETTING,
-        )
+        sunset = check_sunset(setting, version, DEPRECATED_SETTING, REMOVED_SETTING)
+        if sunset is not None:
+            yield sunset.issue(pos, fix=build_rename_fix(setting, node))
 
     def check_dict(self, node: expr) -> Generator[Issue]:
         if not is_dict(node):
@@ -255,7 +296,7 @@ class SettingChecker:
                 detail = f"did you mean: {', '.join(suggestions)}?"
             yield Issue(UNKNOWN_SETTING, pos, detail)
             return
-        yield from self.check_known_name(name, pos)
+        yield from self.check_known_name(name, pos, resolved_node)
 
     def check_update(self, node: keyword | Constant) -> Generator[Issue]:
         name = node.value if isinstance(node, Constant) else node.arg
@@ -640,10 +681,12 @@ class SettingsModuleSettingsProcessor:
         self.context = context
         self.seen_settings: set[str] = set()
         self.robotstxt_obey_values: list[tuple[bool, int, int]] = []
-        self.redundant_values: list[tuple[str, int, int]] = []
+        self.setting_values: list[tuple[str, Any, int, int]] = []
         self.setting_checker = setting_checker
         self.imports: dict[str, str] = {}
-        self.addon_settings: set[str] = set()
+        # Setting name to the value add-ons leave it at and the package of the
+        # add-on that sets it.
+        self.addon_settings: dict[str, tuple[Any, str]] = {}
 
     def process_assignment(self, assignment: Assign) -> Generator[Issue]:
         for target in assignment.targets:
@@ -658,7 +701,7 @@ class SettingsModuleSettingsProcessor:
             name = target.id
             self.seen_settings.add(name)
             if name == "ADDONS":
-                self.process_addons(assignment)
+                yield from self.process_addons(assignment)
             yield from self.process_setting(name, assignment)
 
     def resolve_import_path(self, node) -> str:
@@ -669,11 +712,12 @@ class SettingsModuleSettingsProcessor:
         base = self.resolve_import_path(node.value)
         return f"{base}.{node.attr}"
 
-    def process_addons(self, assignment: Assign) -> None:
+    def process_addons(self, assignment: Assign) -> Generator[Issue]:
         if not is_dict(assignment.value):
             return
         assert isinstance(assignment.value, (Call, Dict))
-        for key, _ in iter_dict(assignment.value):
+        entries: list[AddonEntry] = []
+        for key, value in iter_dict(assignment.value):
             import_path = None
             if (
                 isinstance(key, Name)
@@ -687,34 +731,76 @@ class SettingsModuleSettingsProcessor:
                 import_path = self.resolve_import_path(key)
             if import_path not in ADDONS:
                 continue
-            addon_settings = ADDONS[import_path].get_settings(self.context.project)
-            self.addon_settings |= addon_settings
+            addon = ADDONS[import_path]
+            for setting, setting_value in addon.get_settings(
+                self.context.project
+            ).items():
+                self.add_addon_setting(setting, setting_value, addon.package)
+            priority, is_literal = extract_literal_value(value)
+            # A non-literal priority cannot be compared, and None disables the
+            # add-on.
+            if is_literal and isinstance(priority, (int, float)):
+                entries.append((addon, import_path, priority, value))
+        yield from self.check_addon_order(entries)
+
+    def add_addon_setting(self, name: str, value: Any, package: str) -> None:
+        """Record that the add-on from *package* sets *name* to *value*.
+
+        When add-ons disagree about the value, the resulting one is unknown:
+        add-ons are probed in isolation, so what they do together, e.g. which
+        entries they each add to a component priority dict, is not known.
+        """
+        if name in self.addon_settings:
+            known_value, package = self.addon_settings[name]
+            if known_value != value:
+                value = UNKNOWN_SETTING_VALUE
+        self.addon_settings[name] = (value, package)
+
+    @staticmethod
+    def check_addon_order(entries: list[AddonEntry]) -> Generator[Issue]:
+        """Report add-ons that run before an add-on they must run after.
+
+        Scrapy sorts add-ons by priority value with a stable sort, so add-ons
+        sharing a priority value run in definition order.
+        """
+        ranks = {
+            addon.package: (priority, index)
+            for index, (addon, _, priority, _node) in enumerate(entries)
+        }
+        paths = {addon.package: import_path for addon, import_path, _, _node in entries}
+        for index, (addon, import_path, priority, node) in enumerate(entries):
+            for package in sorted(addon.after):
+                if package not in ranks or (priority, index) > ranks[package]:
+                    continue
+                yield Issue(
+                    WRONG_ADDON_ORDER,
+                    Pos.from_node(node),
+                    detail=f"{import_path} must run after {paths[package]}",
+                )
 
     def process_setting(self, name: str, assignment: Assign) -> Generator[Issue]:
         if name == "ROBOTSTXT_OBEY":
             self.process_robotstxt(assignment)
-        self.check_redundant_values(name, assignment)
+        self.record_setting_value(name, assignment)
         yield from self.check_throttling(name, assignment)
         yield from self.setting_checker.check_value(name, assignment.value)
 
-    def check_redundant_values(self, name: str, assignment: Assign) -> None:
+    def record_setting_value(self, name: str, assignment: Assign) -> None:
+        """Record the value of *name* for a later comparison against its
+        effective default, which add-ons can only be known to change once the
+        entire settings module has been read."""
         if name not in SETTINGS:
-            return
-        setting_info = SETTINGS[name]
-        default_value = setting_info.get_default_value(self.context.project)
-        if default_value is UNKNOWN_SETTING_VALUE:
             return
         setting_value, is_literal = extract_literal_value(assignment.value)
         if not is_literal:
             return
         try:
-            parsed_value = setting_info.parse(setting_value)
+            parsed_value = SETTINGS[name].parse(setting_value)
         except (ValueError, TypeError):
             return
-        if parsed_value == default_value:
-            self.redundant_values.append(
-                (name, assignment.value.lineno, assignment.value.col_offset),
-            )
+        self.setting_values.append(
+            (name, parsed_value, assignment.value.lineno, assignment.value.col_offset),
+        )
 
     def check_throttling(self, name: str, assignment: Assign) -> Generator[Issue]:
         if name not in {"CONCURRENT_REQUESTS_PER_DOMAIN", "DOWNLOAD_DELAY"}:
@@ -813,17 +899,26 @@ class SettingsModuleSettingsProcessor:
             yield issue
 
     def validate_redundant_values(self) -> Generator[Issue]:
-        for name, line, column in self.redundant_values:
+        for name, value, line, column in self.setting_values:
+            default, detail = self.get_effective_default(name)
+            if default is UNKNOWN_SETTING_VALUE or value != default:
+                continue
             if self.is_changing_setting(name):
                 continue
-            yield Issue(REDUNDANT_SETTING_VALUE, Pos(line, column))
+            yield Issue(REDUNDANT_SETTING_VALUE, Pos(line, column), detail=detail)
+
+    def get_effective_default(self, name: str) -> tuple[Any, str | None]:
+        """Return the value *name* has when the settings module does not set
+        it, and a detail string when an add-on is what sets it."""
+        if name in self.addon_settings:
+            value, package = self.addon_settings[name]
+            return value, f"already set by the {package} add-on"
+        return SETTINGS[name].get_default_value(self.context.project), None
 
     def is_changing_setting(self, name: str) -> bool:
-        assert name in SETTINGS
         setting = SETTINGS[name]
         default = setting.default_value
-        assert not isinstance(default, UnknownSettingValue)
-        if not default or not default.history:
+        if isinstance(default, UnknownSettingValue) or not default.history:
             return False
         history = default.history
         assert len(history) == MAX_DEFAULT_VALUE_HISTORY
