@@ -544,8 +544,10 @@ CASES: Cases = (
                                         "FEEDS",
                                         f'{{"{uri}": {{}}}}',
                                         1,
-                                        "invalid URI, e.g. credentials not "
-                                        "percent-encoded",
+                                        (
+                                            "invalid URI, e.g. credentials not "
+                                            "percent-encoded"
+                                        ),
                                     )
                                     for uri in (
                                         "ftp://user:pa/ss@example.com/f.json",
