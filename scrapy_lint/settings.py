@@ -177,6 +177,8 @@ class Setting:
 
     package: str = "scrapy"
     versioning: Versioning = field(default_factory=Versioning)
+    replacement: str | None = None
+    """Setting that supersedes this one, taking the same value."""
     discouraged_in: Version | UnknownUnsupportedVersion | None = None
 
     @property
