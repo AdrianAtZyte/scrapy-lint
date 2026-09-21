@@ -80,15 +80,28 @@ def test_sunset_guidance():
     for data in SETTINGS.values():
         if not data.versioning.deprecated_in:
             assert not data.versioning.sunset_guidance
+            assert not data.replacement
+
+
+def test_replacement():
+    for name, data in SETTINGS.items():
+        if not data.replacement:
+            continue
+        assert data.replacement in SETTINGS, (
+            f"Setting {name} is replaced by unknown setting {data.replacement}"
+        )
+        # The replacement is the sunset guidance, so having both would mean
+        # reporting the same thing twice.
+        assert not data.versioning.sunset_guidance
 
 
 def test_versions():
     for data in SETTINGS.values():
         if data.versioning.removed_in:
-            # Any setting with a removed_in version is expected to have a
-            # lower deprecated_in version as well. If that ever changes, we
-            # need to review any existing code that relies on this assumption.
-            assert data.versioning.deprecated_in
+            # A deprecated_in version is optional, for settings removed
+            # without a prior deprecation, but it must be lower.
+            if not data.versioning.deprecated_in:
+                continue
             if isinstance(data.versioning.deprecated_in, UnknownUnsupportedVersion):
                 assert data.versioning.deprecated_in is UNKNOWN_UNSUPPORTED_VERSION
                 assert PACKAGES[data.package].lowest_supported_version
