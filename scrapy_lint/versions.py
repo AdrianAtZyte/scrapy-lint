@@ -30,6 +30,8 @@ class Versioning:
     added_in: Version | None = None
     deprecated_in: Version | UnknownUnsupportedVersion | None = None
     removed_in: Version | None = None
+    # Version that reverted the deprecation.
+    undeprecated_in: Version | None = None
     sunset_guidance: str | None = None
     # Guidance for uses that the removal broke, where migrating away from the
     # deprecation is no longer what they need, e.g. because the value that
@@ -68,29 +70,39 @@ def check_sunset(
     versioning = entry.versioning
     package = entry.package
     deprecated_in = versioning.deprecated_in
-    if not deprecated_in:
-        return None
-    suffix = ""
-    if isinstance(deprecated_in, UnknownUnsupportedVersion):
-        deprecated_in = PACKAGES[package].lowest_supported_version
-        assert deprecated_in
-        suffix = " or lower"
     removed_in = versioning.removed_in
     removed = False
-    if version < deprecated_in:
-        if not is_discouraged(entry, version):
+    if not deprecated_in:
+        if not removed_in or version < removed_in:
             return None
-        id_ = DISCOURAGED_API
-        detail = f"to be deprecated in {package} {deprecated_in}{suffix}"
+        removed = True
+        id_ = removed_id
+        detail = f"removed in {package} {removed_in}"
     else:
-        removed = removed_in is not None and version >= removed_in
-        id_ = removed_id if removed else deprecated_id
-        detail = f"deprecated in {package} {deprecated_in}{suffix}"
-        if removed:
-            detail += f", removed in {removed_in}"
+        undeprecated_in = versioning.undeprecated_in
+        if undeprecated_in and version >= undeprecated_in:
+            return None
+        suffix = ""
+        if isinstance(deprecated_in, UnknownUnsupportedVersion):
+            deprecated_in = PACKAGES[package].lowest_supported_version
+            assert deprecated_in
+            suffix = " or lower"
+        if version < deprecated_in:
+            if not is_discouraged(entry, version):
+                return None
+            id_ = DISCOURAGED_API
+            detail = f"to be deprecated in {package} {deprecated_in}{suffix}"
+        else:
+            removed = removed_in is not None and version >= removed_in
+            id_ = removed_id if removed else deprecated_id
+            detail = f"deprecated in {package} {deprecated_in}{suffix}"
+            if removed:
+                detail += f", removed in {removed_in}"
     guidance = versioning.sunset_guidance
     if removed and versioning.removal_guidance:
         guidance = versioning.removal_guidance
+    if not guidance and (replacement := getattr(entry, "replacement", None)):
+        guidance = f"use {replacement} instead"
     if guidance:
         detail += f"; {guidance}"
     return Sunset(id_, detail, removed=removed)

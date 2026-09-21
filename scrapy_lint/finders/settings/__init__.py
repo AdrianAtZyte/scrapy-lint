@@ -49,6 +49,7 @@ from scrapy_lint.data.settings import (
     PREDEFINED_SUGGESTIONS,
     SETTINGS,
 )
+from scrapy_lint.fixes import Edit, Fix
 from scrapy_lint.issues import (
     BASE_SETTING_USE,
     DEPRECATED_SETTING,
@@ -69,6 +70,7 @@ from scrapy_lint.issues import (
     SETTING_NEEDS_UPGRADE,
     UNKNOWN_SETTING,
     UNNEEDED_SETTING_GET,
+    WRONG_ADDON_ORDER,
     WRONG_SETTING_METHOD,
     ZYTE_RAW_PARAMS,
     Issue,
@@ -101,10 +103,43 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from pathlib import Path
 
+    from scrapy_lint.addons import Addon
     from scrapy_lint.context import Context
+
+    AddonEntry = tuple[Addon, str, float, expr]
 
 LineNumber = int
 IssueNode = Constant | Name | keyword | ClassDef | FunctionDef | Import | ImportFrom
+
+
+def build_rename_fix(setting: Setting, node: IssueNode) -> Fix | None:
+    """Build a fix that renames *node*, which spells the name of *setting*, as
+    the setting that replaces it.
+
+    Returns ``None`` (report only, no fix) when the setting has no replacement,
+    or when *node* is not a plain name or single-quoted string literal, e.g. a
+    class definition or an import.
+    """
+    if not setting.replacement:
+        return None
+    assert isinstance(setting.name, str)
+    length = len(setting.name)
+    if isinstance(node, Name):
+        start = Pos.from_node(node)
+        end = Pos(start.line, start.column + length)
+    elif (
+        isinstance(node, Constant)
+        and node.lineno == node.end_lineno
+        and node.end_col_offset == node.col_offset + length + 2
+    ):
+        start = Pos(node.lineno, node.col_offset + 1)
+        end = Pos(node.lineno, node.end_col_offset - 1)
+    else:
+        return None
+    return Fix(
+        [Edit(start, end, setting.replacement)],
+        message=f"rename {setting.name} to {setting.replacement}",
+    )
 
 
 class SettingChecker:
@@ -160,7 +195,12 @@ class SettingChecker:
         matches.sort(key=lambda x: (-x[1], x[0]))
         return [m[0] for m in matches[:MAX_AUTOMATIC_SUGGESTIONS]]
 
-    def check_known_name(self, name: str, pos: Pos) -> Generator[Issue]:
+    def check_known_name(
+        self,
+        name: str,
+        pos: Pos,
+        node: IssueNode,
+    ) -> Generator[Issue]:
         yield from self.check_special_names(name, pos)
         if name not in SETTINGS:
             return
@@ -169,7 +209,7 @@ class SettingChecker:
         yield from self.check_setting_requirement(setting, pos)
         if package not in self.project.frozen_requirements:
             return
-        yield from self.check_setting_versioning(setting, pos)
+        yield from self.check_setting_versioning(setting, pos, node)
 
     def check_special_names(self, name: str, pos: Pos) -> Generator[Issue]:
         if name.endswith("_BASE"):
@@ -186,7 +226,12 @@ class SettingChecker:
         ):
             yield Issue(MISSING_SETTING_REQUIREMENT, pos, package)
 
-    def check_setting_versioning(self, setting, pos: Pos) -> Generator[Issue]:
+    def check_setting_versioning(
+        self,
+        setting,
+        pos: Pos,
+        node: IssueNode,
+    ) -> Generator[Issue]:
         package = setting.package
         added_in = setting.versioning.added_in
         version = self.project.frozen_requirements[package]
@@ -195,7 +240,7 @@ class SettingChecker:
             return
         sunset = check_sunset(setting, version, DEPRECATED_SETTING, REMOVED_SETTING)
         if sunset is not None:
-            yield sunset.issue(pos)
+            yield sunset.issue(pos, fix=build_rename_fix(setting, node))
 
     def check_dict(self, node: expr) -> Generator[Issue]:
         if not is_dict(node):
@@ -251,7 +296,7 @@ class SettingChecker:
                 detail = f"did you mean: {', '.join(suggestions)}?"
             yield Issue(UNKNOWN_SETTING, pos, detail)
             return
-        yield from self.check_known_name(name, pos)
+        yield from self.check_known_name(name, pos, resolved_node)
 
     def check_update(self, node: keyword | Constant) -> Generator[Issue]:
         name = node.value if isinstance(node, Constant) else node.arg
@@ -654,7 +699,7 @@ class SettingsModuleSettingsProcessor:
             name = target.id
             self.seen_settings.add(name)
             if name == "ADDONS":
-                self.process_addons(assignment)
+                yield from self.process_addons(assignment)
             yield from self.process_setting(name, assignment)
 
     def resolve_import_path(self, node) -> str:
@@ -665,11 +710,12 @@ class SettingsModuleSettingsProcessor:
         base = self.resolve_import_path(node.value)
         return f"{base}.{node.attr}"
 
-    def process_addons(self, assignment: Assign) -> None:
+    def process_addons(self, assignment: Assign) -> Generator[Issue]:
         if not is_dict(assignment.value):
             return
         assert isinstance(assignment.value, (Call, Dict))
-        for key, _ in iter_dict(assignment.value):
+        entries: list[AddonEntry] = []
+        for key, value in iter_dict(assignment.value):
             import_path = None
             if (
                 isinstance(key, Name)
@@ -683,8 +729,36 @@ class SettingsModuleSettingsProcessor:
                 import_path = self.resolve_import_path(key)
             if import_path not in ADDONS:
                 continue
-            addon_settings = ADDONS[import_path].get_settings(self.context.project)
-            self.addon_settings |= addon_settings
+            addon = ADDONS[import_path]
+            self.addon_settings |= addon.get_settings(self.context.project)
+            priority, is_literal = extract_literal_value(value)
+            # A non-literal priority cannot be compared, and None disables the
+            # add-on.
+            if is_literal and isinstance(priority, (int, float)):
+                entries.append((addon, import_path, priority, value))
+        yield from self.check_addon_order(entries)
+
+    @staticmethod
+    def check_addon_order(entries: list[AddonEntry]) -> Generator[Issue]:
+        """Report add-ons that run before an add-on they must run after.
+
+        Scrapy sorts add-ons by priority value with a stable sort, so add-ons
+        sharing a priority value run in definition order.
+        """
+        ranks = {
+            addon.package: (priority, index)
+            for index, (addon, _, priority, _node) in enumerate(entries)
+        }
+        paths = {addon.package: import_path for addon, import_path, _, _node in entries}
+        for index, (addon, import_path, priority, node) in enumerate(entries):
+            for package in sorted(addon.after):
+                if package not in ranks or (priority, index) > ranks[package]:
+                    continue
+                yield Issue(
+                    WRONG_ADDON_ORDER,
+                    Pos.from_node(node),
+                    detail=f"{import_path} must run after {paths[package]}",
+                )
 
     def process_setting(self, name: str, assignment: Assign) -> Generator[Issue]:
         if name == "ROBOTSTXT_OBEY":
