@@ -127,6 +127,17 @@ CASES: Cases = tuple(
             ),
             None,
         ),
+        # Keys that are not import paths, as strings or as objects, are
+        # reported as invalid values instead.
+        (
+            None,
+            "DOWNLOADER_MIDDLEWARES = {1: None}",
+            ExpectedIssue(
+                "SCP36 invalid setting value: keys must be strings, not int (1)",
+                column=26,
+                path=PATH,
+            ),
+        ),
         # An import path string is the only way to disable a component before
         # Scrapy 2.15.0, so it is not reported as unneeded until then.
         (
