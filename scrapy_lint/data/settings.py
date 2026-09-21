@@ -165,11 +165,6 @@ SETTINGS = {
         default_value=VersionedValue(10000),
         is_pre_crawler=True,
     ),
-    "DNS_RESOLVER": Setting(
-        type=SettingType.OBJ,
-        default_value=VersionedValue("scrapy.resolver.CachingThreadedResolver"),
-        is_pre_crawler=True,
-    ),
     "DNS_TIMEOUT": Setting(
         type=SettingType.FLOAT,
         default_value=VersionedValue(60),
@@ -244,20 +239,9 @@ SETTINGS = {
         default_value=VersionedValue("DEFAULT"),
         versioning=Versioning(nullable_since=Version("2.17.0")),
     ),
-    "DOWNLOADER_CLIENT_TLS_METHOD": Setting(
-        type=SettingType.ENUM_STR,
-        values=("TLS", "TLSv1.0", "TLSv1.1", "TLSv1.2"),
-        default_value=VersionedValue("TLS"),
-    ),
     "DOWNLOADER_CLIENT_TLS_VERBOSE_LOGGING": Setting(
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
-    ),
-    "DOWNLOADER_CLIENTCONTEXTFACTORY": Setting(
-        type=SettingType.OBJ,
-        default_value=VersionedValue(
-            "scrapy.core.downloader.contextfactory.ScrapyClientContextFactory",
-        ),
     ),
     "DOWNLOADER_MIDDLEWARES": Setting(
         type=SettingType.BASED_COMP_PRIO_DICT,
@@ -656,7 +640,6 @@ SETTINGS = {
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
     ),
-    "MEMDEBUG_NOTIFY": Setting(type=SettingType.LIST, default_value=VersionedValue([])),
     "MEMUSAGE_CHECK_INTERVAL_SECONDS": Setting(
         type=SettingType.FLOAT,
         default_value=VersionedValue(60.0),
@@ -697,10 +680,6 @@ SETTINGS = {
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
         versioning=Versioning(added_in=Version("2.11.0")),
-    ),
-    "RANDOMIZE_DOWNLOAD_DELAY": Setting(
-        type=SettingType.BOOL,
-        default_value=VersionedValue(True),
     ),
     "REACTOR_THREADPOOL_MAXSIZE": Setting(
         type=SettingType.INT,
@@ -1087,12 +1066,57 @@ SETTINGS = {
         versioning=Versioning(added_in=Version("2.18.0")),
     ),
     # Deprecated Scrapy built-in settings, in reverse deprecation order.
+    "RANDOMIZE_DOWNLOAD_DELAY": Setting(
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(
+            deprecated_in=Version("2.19.0"),
+            sunset_guidance=(
+                "use DOWNLOAD_DELAY_JITTER instead, e.g. 0.5 for the ±50% that True "
+                "meant, or 0 to disable"
+            ),
+        ),
+    ),
     "CRAWLSPIDER_FOLLOW_LINKS": Setting(
         type=SettingType.BOOL,
         default_value=VersionedValue(True),
         versioning=Versioning(
             deprecated_in=Version("2.17.0"),
             sunset_guidance="set follow=False in your rules instead",
+        ),
+        discouraged_in=UNKNOWN_UNSUPPORTED_VERSION,
+    ),
+    "DNS_RESOLVER": Setting(
+        type=SettingType.OBJ,
+        default_value=VersionedValue("scrapy.resolver.CachingThreadedResolver"),
+        is_pre_crawler=True,
+        versioning=Versioning(
+            deprecated_in=Version("2.15.0"),
+            sunset_guidance="use TWISTED_DNS_RESOLVER instead",
+        ),
+    ),
+    "DOWNLOADER_CLIENTCONTEXTFACTORY": Setting(
+        type=SettingType.OBJ,
+        default_value=VersionedValue(
+            "scrapy.core.downloader.contextfactory.ScrapyClientContextFactory",
+        ),
+        versioning=Versioning(
+            deprecated_in=Version("2.15.0"),
+            sunset_guidance=(
+                "use DOWNLOAD_VERIFY_CERTIFICATES if the setting was used to switch to "
+                "BrowserLikeContextFactory, otherwise subclass the download handler"
+            ),
+        ),
+    ),
+    "DOWNLOADER_CLIENT_TLS_METHOD": Setting(
+        type=SettingType.ENUM_STR,
+        values=("TLS", "TLSv1.0", "TLSv1.1", "TLSv1.2"),
+        default_value=VersionedValue("TLS"),
+        versioning=Versioning(
+            deprecated_in=Version("2.17.0"),
+            sunset_guidance=(
+                "use DOWNLOAD_TLS_MIN_VERSION and/or DOWNLOAD_TLS_MAX_VERSION instead"
+            ),
         ),
     ),
     "MEMUSAGE_NOTIFY_MAIL": Setting(
@@ -1104,14 +1128,14 @@ SETTINGS = {
                 "use the memusage_warning_reached and spider_closed signals instead"
             ),
         ),
+        discouraged_in=UNKNOWN_UNSUPPORTED_VERSION,
     ),
     "CONCURRENT_REQUESTS_PER_IP": Setting(
         type=SettingType.INT,
         default_value=VersionedValue(0),
-        versioning=Versioning(
-            deprecated_in=Version("2.14.0"),
-            sunset_guidance="use CONCURRENT_REQUESTS_PER_DOMAIN instead",
-        ),
+        versioning=Versioning(deprecated_in=Version("2.14.0")),
+        replacement="CONCURRENT_REQUESTS_PER_DOMAIN",
+        discouraged_in=UNKNOWN_UNSUPPORTED_VERSION,
     ),
     "FEED_FORMAT": Setting(
         type=SettingType.STR,
@@ -1129,6 +1153,11 @@ SETTINGS = {
         ),
     ),
     # Removed Scrapy built-in settings, in reverse removal order.
+    "MEMDEBUG_NOTIFY": Setting(
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(removed_in=Version("2.18.0")),
+    ),
     "AJAXCRAWL_ENABLED": Setting(
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
@@ -1179,16 +1208,16 @@ SETTINGS = {
         versioning=Versioning(
             removed_in=Version("2.1.0"),
             deprecated_in=UNKNOWN_UNSUPPORTED_VERSION,
-            sunset_guidance="use SCHEDULER_DEBUG instead",
         ),
+        replacement="SCHEDULER_DEBUG",
     ),
     "REDIRECT_MAX_METAREFRESH_DELAY": Setting(
         type=SettingType.FLOAT,
         versioning=Versioning(
             removed_in=Version("2.1.0"),
             deprecated_in=UNKNOWN_UNSUPPORTED_VERSION,
-            sunset_guidance="use METAREFRESH_MAXDELAY instead",
         ),
+        replacement="METAREFRESH_MAXDELAY",
     ),
     # scrapy-azure-exporter plugin settings, in order of appearance
     # in https://github.com/scrapy-plugins/scrapy-feedexporter-azure-storage
