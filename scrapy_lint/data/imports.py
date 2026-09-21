@@ -59,6 +59,14 @@ IMPORTS = {
     "scrapy.core.downloader.tls.METHOD_TLSv12": _INTERNAL_2_17,
     "scrapy.core.downloader.tls.ScrapyClientTLSOptions": _INTERNAL_2_15,
     "scrapy.core.downloader.tls.openssl_methods": _INTERNAL_2_17,
+    "scrapy.extensions.feedexport.IFeedStorage": ImportedObject(
+        versioning=Versioning(
+            deprecated_in=Version("2.18.0"),
+            sunset_guidance=(
+                "follow scrapy.extensions.feedexport.FeedStorageProtocol instead"
+            ),
+        ),
+    ),
     "scrapy.extensions.statsmailer.StatsMailer": ImportedObject(
         versioning=Versioning(
             deprecated_in=Version("2.15.0"),
@@ -69,12 +77,31 @@ IMPORTS = {
     ),
     "scrapy.http.FormRequest": _FORM_REQUEST,
     "scrapy.http.request.form": _FORM_REQUEST,
+    "scrapy.interfaces": ImportedObject(
+        versioning=Versioning(
+            deprecated_in=Version("2.18.0"),
+            sunset_guidance="follow scrapy.spiderloader.SpiderLoaderProtocol instead",
+        ),
+    ),
     "scrapy.mail.MailSender": ImportedObject(
         versioning=Versioning(
             deprecated_in=Version("2.15.0"),
             sunset_guidance=(
                 "use smtplib, twisted.mail.smtp or a third-party email library instead"
             ),
+        ),
+    ),
+    "scrapy.pipelines.files.FileException": ImportedObject(
+        versioning=Versioning(
+            deprecated_in=Version("2.18.0"),
+            sunset_guidance="import it from scrapy.pipelines.media instead",
+        ),
+    ),
+    "scrapy.utils.datatypes.CaselessDict": ImportedObject(
+        versioning=Versioning(
+            deprecated_in=Version("2.10.0"),
+            removed_in=Version("2.18.0"),
+            sunset_guidance="use CaseInsensitiveDict instead",
         ),
     ),
     "scrapy.utils.decorators.defers": _MAYBE_DEFERRED,
@@ -91,6 +118,19 @@ IMPORTS = {
         "use twisted.internet.defer.succeed instead",
     ),
     "scrapy.utils.defer.mustbe_deferred": _MAYBE_DEFERRED,
+    "scrapy.utils.iterators.xmliter": ImportedObject(
+        versioning=Versioning(
+            deprecated_in=Version("2.11.1"),
+            removed_in=Version("2.18.0"),
+            sunset_guidance="use xmliter_lxml instead",
+        ),
+    ),
+    "scrapy.utils.misc.md5sum": ImportedObject(
+        versioning=Versioning(
+            deprecated_in=Version("2.12.0"),
+            removed_in=Version("2.18.0"),
+        ),
+    ),
     "scrapy.utils.misc.walk_modules": ImportedObject(
         versioning=Versioning(
             deprecated_in=Version("2.15.0"),
@@ -99,6 +139,9 @@ IMPORTS = {
     ),
     "scrapy.utils.python.MutableChain": ImportedObject(
         versioning=Versioning(deprecated_in=Version("2.16.0")),
+    ),
+    "scrapy.utils.python.re_rsearch": ImportedObject(
+        versioning=Versioning(deprecated_in=Version("2.18.0")),
     ),
     "scrapy.utils.ssl.ffi_buf_to_string": _INTERNAL_2_17,
     "scrapy.utils.ssl.get_temp_key_info": _INTERNAL_2_17,
