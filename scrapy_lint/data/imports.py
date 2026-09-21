@@ -59,8 +59,24 @@ IMPORTS = {
     "scrapy.core.downloader.tls.METHOD_TLSv12": _INTERNAL_2_17,
     "scrapy.core.downloader.tls.ScrapyClientTLSOptions": _INTERNAL_2_15,
     "scrapy.core.downloader.tls.openssl_methods": _INTERNAL_2_17,
+    "scrapy.extensions.statsmailer.StatsMailer": ImportedObject(
+        versioning=Versioning(
+            deprecated_in=Version("2.15.0"),
+            sunset_guidance=(
+                "handle the spider_closed signal to send your own notifications instead"
+            ),
+        ),
+    ),
     "scrapy.http.FormRequest": _FORM_REQUEST,
     "scrapy.http.request.form": _FORM_REQUEST,
+    "scrapy.mail.MailSender": ImportedObject(
+        versioning=Versioning(
+            deprecated_in=Version("2.15.0"),
+            sunset_guidance=(
+                "use smtplib, twisted.mail.smtp or a third-party email library instead"
+            ),
+        ),
+    ),
     "scrapy.utils.decorators.defers": _MAYBE_DEFERRED,
     "scrapy.utils.defer.defer_fail": _discouraged(
         "2.14.0",
@@ -80,6 +96,9 @@ IMPORTS = {
             deprecated_in=Version("2.15.0"),
             sunset_guidance="use walk_modules_iter() instead",
         ),
+    ),
+    "scrapy.utils.python.MutableChain": ImportedObject(
+        versioning=Versioning(deprecated_in=Version("2.16.0")),
     ),
     "scrapy.utils.ssl.ffi_buf_to_string": _INTERNAL_2_17,
     "scrapy.utils.ssl.get_temp_key_info": _INTERNAL_2_17,
