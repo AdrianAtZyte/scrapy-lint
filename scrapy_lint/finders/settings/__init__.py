@@ -238,15 +238,9 @@ class SettingChecker:
         if added_in and version < added_in:
             yield Issue(SETTING_NEEDS_UPGRADE, pos, f"added in {package} {added_in}")
             return
-        for issue in check_sunset(
-            setting,
-            version,
-            pos,
-            DEPRECATED_SETTING,
-            REMOVED_SETTING,
-        ):
-            issue.fix = build_rename_fix(setting, node)
-            yield issue
+        sunset = check_sunset(setting, version, DEPRECATED_SETTING, REMOVED_SETTING)
+        if sunset is not None:
+            yield sunset.issue(pos, fix=build_rename_fix(setting, node))
 
     def check_dict(self, node: expr) -> Generator[Issue]:
         if not is_dict(node):
