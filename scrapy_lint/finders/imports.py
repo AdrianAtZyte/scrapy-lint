@@ -39,16 +39,17 @@ class ImportIssueFinder:
                 or imported_object.package not in self.project.frozen_requirements
             ):
                 continue
-            for issue in check_sunset(
+            sunset = check_sunset(
                 imported_object,
                 self.project.frozen_requirements[imported_object.package],
-                Pos.from_node(node, import_column(import_alias)),
                 DEPRECATED_IMPORT,
                 REMOVED_IMPORT,
-            ):
-                if imported_object.replacement:
-                    issue.fix = fix
-                yield issue
+            )
+            if sunset is not None:
+                yield sunset.issue(
+                    Pos.from_node(node, import_column(import_alias)),
+                    fix=fix,
+                )
 
     def build_fix(self, node: AST) -> Fix | None:
         """Return a fix that points *node* at the module of the replacement of
