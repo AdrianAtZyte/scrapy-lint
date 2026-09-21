@@ -33,3 +33,12 @@ valid for the setting, and assign a valid value:
     :caption: ``settings.py``
 
     CONCURRENT_REQUESTS_PER_DOMAIN = 1
+
+
+Fix
+===
+
+This rule is automatically fixable with the ``--fix`` command-line option for
+the deprecated ``randomize_delay`` key of ``DOWNLOAD_SLOTS`` entries: ``False``
+becomes ``"jitter": 0``, and ``True`` is removed, since it is what ``jitter``
+defaults to.

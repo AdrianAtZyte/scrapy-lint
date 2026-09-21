@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from ast import Call, Constant, Dict, Lambda, List, Set, Tuple, UnaryOp, USub, expr
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from packaging.version import Version
 
@@ -14,6 +14,7 @@ from scrapy_lint.finders.settings.types import (
     is_import_path,
     is_path_obj,
 )
+from scrapy_lint.fixes import Edit, Fix
 from scrapy_lint.issues import (
     HARDCODED_SECRET,
     INVALID_SETTING_VALUE,
@@ -33,6 +34,53 @@ if TYPE_CHECKING:
 
 
 SLOT_JITTER_VERSION = Version("2.19.0")
+SLOT_RANDOMIZE_DELAY_REPLACEMENTS: dict[bool, dict[str, Any]] = {
+    True: {},
+    False: {"jitter": 0},
+}
+
+
+def end_pos(node: expr) -> Pos:
+    assert node.end_lineno is not None
+    assert node.end_col_offset is not None
+    return Pos(node.end_lineno, node.end_col_offset)
+
+
+def replacement_message(name: str, replacements: dict[str, Any]) -> str:
+    if not replacements:
+        return f"remove {name}"
+    return f"replace {name} with {' and '.join(replacements)}"
+
+
+def build_dict_entry_fix(
+    node: Dict,
+    index: int,
+    name: str,
+    replacements: dict[str, Any],
+) -> Fix | None:
+    """Build a fix that replaces the entry of *node* at *index*, keyed by
+    *name*, with one entry per item of *replacements*, or that removes the
+    entry when *replacements* is empty.
+
+    Returns ``None`` when the entry cannot be removed cleanly, i.e. when it
+    is the first of several entries and a ``**`` unpacking follows it.
+    """
+    keys, values = node.keys, node.values
+    key = keys[index]
+    assert key is not None
+    start = Pos.from_node(key)
+    end = end_pos(values[index])
+    text = ", ".join(f"{k!r}: {v!r}" for k, v in replacements.items())
+    if not replacements:
+        if index + 1 < len(keys) and keys[index + 1] is not None:
+            end = Pos.from_node(keys[index + 1])
+        elif index > 0:
+            start = end_pos(values[index - 1])
+        elif len(keys) > 1:
+            return None
+    return Fix(
+        [Edit(start, end, text)], message=replacement_message(name, replacements)
+    )
 
 
 def check_slot_concurrency(value: expr, pos: Pos) -> Generator[Issue]:
@@ -52,7 +100,7 @@ def check_slot_config(
     node: Call | Dict,
     scrapy_version: Version | None,
 ) -> Generator[Issue]:
-    for key, value in iter_dict(node):
+    for index, (key, value) in enumerate(iter_dict(node)):
         if not isinstance(key, Constant):
             continue
         param = key.value
@@ -83,7 +131,19 @@ def check_slot_config(
                     f"randomize_delay is deprecated in scrapy "
                     f"{SLOT_JITTER_VERSION}; use jitter instead"
                 )
-                yield Issue(INVALID_SETTING_VALUE, key_pos, detail=detail)
+                fix = None
+                if (
+                    isinstance(node, Dict)
+                    and isinstance(value, Constant)
+                    and isinstance(value.value, bool)
+                ):
+                    fix = build_dict_entry_fix(
+                        node,
+                        index,
+                        param,
+                        SLOT_RANDOMIZE_DELAY_REPLACEMENTS[value.value],
+                    )
+                yield Issue(INVALID_SETTING_VALUE, key_pos, detail=detail, fix=fix)
             if isinstance(value, Constant) and not isinstance(value.value, bool):
                 detail = "randomize_delay must be a boolean"
                 yield Issue(INVALID_SETTING_VALUE, value_pos, detail=detail)
