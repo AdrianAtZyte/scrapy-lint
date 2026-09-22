@@ -5,7 +5,13 @@ from typing import cast
 from tests.helpers import check_project
 from tests.settings import SETTING_VALUE_CHECK_TEMPLATES, SafeDict, zip_with_template
 
-from . import Cases, ExpectedIssue, ExpectedIssues, File, cases
+from . import (  # pylint: disable=unused-import
+    Cases,
+    ExpectedIssue,
+    ExpectedIssues,
+    File,
+    cases,
+)
 
 CASES: Cases = (
     # Python file checks
