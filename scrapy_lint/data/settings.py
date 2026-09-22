@@ -1351,13 +1351,55 @@ SETTINGS = {
     "REDIS_ENCODING": Setting(package="scrapy-redis"),
     # scrapyrt plugin settings, in order of appearance in
     # https://scrapyrt.readthedocs.io/en/latest/api.html#available-settings
-    "SERVICE_ROOT": Setting(package="scrapyrt"),
-    "CRAWL_MANAGER": Setting(package="scrapyrt"),
-    "RESOURCES": Setting(package="scrapyrt"),
-    "LOG_DIR": Setting(package="scrapyrt"),
-    "TIMEOUT_LIMIT": Setting(package="scrapyrt"),
-    "DEBUG": Setting(package="scrapyrt"),
-    "PROJECT_SETTINGS": Setting(package="scrapyrt"),
+    "SERVICE_ROOT": Setting(
+        package="scrapyrt",
+        type=SettingType.OBJ,
+        default_value=VersionedValue("scrapyrt.resources.RealtimeApi"),
+    ),
+    "CRAWL_MANAGER": Setting(
+        package="scrapyrt",
+        type=SettingType.OBJ,
+        default_value=VersionedValue("scrapyrt.core.CrawlManager"),
+    ),
+    "RESOURCES": Setting(
+        package="scrapyrt",
+        type=SettingType.DICT,
+        default_value=VersionedValue(
+            {"crawl.json": "scrapyrt.resources.CrawlResource"}
+        ),
+    ),
+    "LOG_DIR": Setting(
+        package="scrapyrt",
+        type=SettingType.STR,
+        default_value=VersionedValue("logs"),
+    ),
+    "TIMEOUT_LIMIT": Setting(
+        package="scrapyrt",
+        type=SettingType.INT,
+        default_value=VersionedValue(1000),
+    ),
+    "DEBUG": Setting(
+        package="scrapyrt",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+    ),
+    "PROJECT_SETTINGS": Setting(
+        package="scrapyrt",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+    ),
+    "DEFAULT_ERRBACK_NAME": Setting(
+        package="scrapyrt",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.16.0")),
+    ),
+    "SPIDER_LOG_FILE_TIMEFORMAT": Setting(
+        package="scrapyrt",
+        type=SettingType.STR,
+        default_value=VersionedValue("%Y-%m-%dT%H%M%S.%f"),
+        versioning=Versioning(added_in=Version("0.10.0")),
+    ),
     # scrapy-settings-log plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-settings-log
     "SETTINGS_LOGGING_ENABLED": Setting(
