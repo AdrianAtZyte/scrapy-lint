@@ -1,8 +1,9 @@
 from packaging.utils import canonicalize_name
 from packaging.version import Version
 
-from scrapy_lint.data.packages import PACKAGES
+from scrapy_lint.data.packages import PACKAGES, VERSION_CONFLICTS
 from scrapy_lint.finders.requirements import RequirementsIssueFinder
+from scrapy_lint.packages import VersionConflict
 
 from . import NO_ISSUE, Cases, ExpectedIssue, File, cases
 from .helpers import check_project
@@ -15,6 +16,20 @@ SCRAPY_LOWEST_SUPPORTED = PACKAGES["scrapy"].lowest_supported_version
 SCRAPY_ANCIENT_VERSION = Version("2.0.0")
 ENTRYPOINT_BROKEN = "scrapinghub-entrypoint-scrapy==0.14.0"
 ENTRYPOINT_FIXED = "scrapinghub-entrypoint-scrapy==0.14.1"
+
+CONFLICTS_BY_DEPENDENCY: dict[str, list[VersionConflict]] = {}
+for _conflict in VERSION_CONFLICTS:
+    if _conflict.dependency == "scrapinghub-entrypoint-scrapy":
+        continue
+    CONFLICTS_BY_DEPENDENCY.setdefault(_conflict.dependency, []).append(_conflict)
+
+
+def lowest_supported(dependency: str) -> Version:
+    package = PACKAGES.get(dependency)
+    if package is None or package.lowest_supported_version is None:
+        return Version("0")
+    return package.lowest_supported_version
+
 
 CASES: Cases = (
     # No scrapy.cfg file: still works because the root directory is the working
@@ -296,6 +311,51 @@ CASES: Cases = (
                     (("scrapy>=2.11.0", ENTRYPOINT_BROKEN), 1, False, 0),
                     ((f"scrapy=={SCRAPY_HIGHEST_KNOWN}",), 1, False, 0),
                     ((ENTRYPOINT_BROKEN,), 1, False, 0),
+                )
+            ),
+            # SCP76 incompatible requirement, every other known conflict
+            *(
+                (
+                    f"scrapy=={SCRAPY_HIGHEST_KNOWN}\n{dependency}=={dependency_version}",
+                    (
+                        *(
+                            (
+                                ExpectedIssue(
+                                    "SCP14 unsupported requirement: scrapy-lint "
+                                    f"only supports {dependency} "
+                                    f"{lowest_supported}+",
+                                    line=2,
+                                    path=path,
+                                ),
+                            )
+                            if lowest_supported
+                            and dependency_version < lowest_supported
+                            else ()
+                        ),
+                        *(
+                            (
+                                ExpectedIssue(
+                                    "SCP76 incompatible requirement: "
+                                    f"{conflict.package} {conflict.since}+ "
+                                    f"requires {conflict.dependency} "
+                                    f"{conflict.lowest_compatible}+",
+                                    line=2,
+                                    path=path,
+                                )
+                                for conflict in conflicts
+                            )
+                            if broken
+                            else ()
+                        ),
+                    ),
+                )
+                for dependency, conflicts in CONFLICTS_BY_DEPENDENCY.items()
+                for lowest_supported in (
+                    getattr(PACKAGES.get(dependency), "lowest_supported_version", None),
+                )
+                for dependency_version, broken in (
+                    (Version("0"), True),
+                    (max(c.lowest_compatible for c in conflicts), False),
                 )
             ),
         )
