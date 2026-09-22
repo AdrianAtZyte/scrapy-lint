@@ -545,8 +545,8 @@ CASES: Cases = (
                                         f'{{"{uri}": {{}}}}',
                                         1,
                                         (
-                                            "invalid URI, e.g. credentials "
-                                            "not percent-encoded"
+                                            "invalid URI, e.g. credentials not "
+                                            "percent-encoded"
                                         ),
                                     )
                                     for uri in (
