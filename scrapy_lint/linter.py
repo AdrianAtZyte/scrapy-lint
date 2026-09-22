@@ -81,6 +81,9 @@ class PythonIssueFinder(NodeVisitor):
             "Attribute": [
                 injectable_issue_finder,
             ],
+            "AugAssign": [
+                setting_issue_finder,
+            ],
             "Call": [
                 find_get_first_by_index_issues,
                 lambda_callback_issue_finder,
