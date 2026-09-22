@@ -106,6 +106,7 @@ disable = """
 """
 per-file-ignores = [
     "docs/conf.py:invalid-name",
+    "scrapy_lint/apis.py:too-many-instance-attributes",
     "scrapy_lint/settings.py:too-many-instance-attributes",
     # redefined-outer-name and unused-argument are how pytest fixtures work,
     # and test doubles are small classes that reach into what they double.
