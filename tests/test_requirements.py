@@ -3,8 +3,9 @@ from inspect import cleandoc
 from packaging.utils import canonicalize_name
 from packaging.version import Version
 
-from scrapy_lint.data.packages import PACKAGES
+from scrapy_lint.data.packages import PACKAGES, VERSION_CONFLICTS
 from scrapy_lint.finders.requirements import RequirementsIssueFinder
+from scrapy_lint.packages import VersionConflict
 
 from . import NO_ISSUE, Cases, ExpectedIssue, File, cases
 from .helpers import check_project
@@ -17,6 +18,20 @@ SCRAPY_LOWEST_SUPPORTED = PACKAGES["scrapy"].lowest_supported_version
 SCRAPY_ANCIENT_VERSION = Version("2.0.0")
 ENTRYPOINT_BROKEN = "scrapinghub-entrypoint-scrapy==0.14.0"
 ENTRYPOINT_FIXED = "scrapinghub-entrypoint-scrapy==0.14.1"
+
+CONFLICTS_BY_DEPENDENCY: dict[str, list[VersionConflict]] = {}
+for _conflict in VERSION_CONFLICTS:
+    if _conflict.dependency == "scrapinghub-entrypoint-scrapy":
+        continue
+    CONFLICTS_BY_DEPENDENCY.setdefault(_conflict.dependency, []).append(_conflict)
+
+
+def lowest_supported(dependency: str) -> Version:
+    package = PACKAGES.get(dependency)
+    if package is None or package.lowest_supported_version is None:
+        return Version("0")
+    return package.lowest_supported_version
+
 
 ALL_DEPS = "\n".join(
     [
@@ -39,8 +54,8 @@ ALL_DEPS = "\n".join(
         "scrapy-pagestorage==0.2.3",
         "scrapy-querycleaner==0.1.0",
         "scrapy-splitvariants==0.1.0",
-        "scrapy-zyte-smartproxy==2.1.0",
-        "spidermon==1.20.0",
+        "scrapy-zyte-smartproxy==2.4.1",
+        "spidermon==1.27.0",
         "twisted==23.8.0",
         "urllib3==2.0.4",
         "cryptography==41.0.4",
@@ -418,6 +433,32 @@ CASES: Cases = (
                     (("scrapy>=2.11.0", ENTRYPOINT_BROKEN), 1, False, 0),
                     ((f"scrapy=={SCRAPY_HIGHEST_KNOWN}",), 1, False, 0),
                     ((ENTRYPOINT_BROKEN,), 1, False, 0),
+                )
+            ),
+            # SCP76 incompatible requirement, every other known conflict
+            *(
+                (
+                    f"scrapy=={SCRAPY_HIGHEST_KNOWN}\n{dependency}=={dependency_version}",
+                    (
+                        tuple(
+                            ExpectedIssue(
+                                "SCP76 incompatible requirement: "
+                                f"{conflict.package} {conflict.since}+ "
+                                f"requires {conflict.dependency} "
+                                f"{conflict.lowest_compatible}+",
+                                line=2,
+                                path=path,
+                            )
+                            for conflict in conflicts
+                        )
+                        if broken
+                        else ()
+                    ),
+                )
+                for dependency, conflicts in CONFLICTS_BY_DEPENDENCY.items()
+                for dependency_version, broken in (
+                    (lowest_supported(dependency), True),
+                    (max(c.lowest_compatible for c in conflicts), False),
                 )
             ),
         )

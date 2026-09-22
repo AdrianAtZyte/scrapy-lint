@@ -14,6 +14,7 @@ from . import (
 from .helpers import check_project
 
 DEPRECATION_VERSION = "2.14.0"
+AUTH_DEPRECATION_VERSION = "2.17.0"
 PARTIAL_FREEZE = ExpectedIssue(
     "SCP13 incomplete requirements freeze",
     path="requirements.txt",
@@ -24,6 +25,17 @@ def issue(line: int, column: int, setting: str) -> ExpectedIssue:
     return ExpectedIssue(
         f"SCP48 deprecated spider attribute: deprecated in scrapy "
         f"{DEPRECATION_VERSION}; use the {setting} setting instead",
+        line=line,
+        column=column,
+        path="a.py",
+    )
+
+
+def auth_issue(line: int, column: int, attribute: str, setting: str) -> ExpectedIssue:
+    return ExpectedIssue(
+        f"SCP48 deprecated spider attribute: deprecated in scrapy "
+        f"{AUTH_DEPRECATION_VERSION}; use the {setting} setting or the "
+        f"{attribute} request metadata key instead",
         line=line,
         column=column,
         path="a.py",
@@ -80,6 +92,29 @@ CASES: Cases = (
                     issue(3, 23, "DOWNLOAD_WARNSIZE"),
                 ),
             ),
+            # HTTP authentication attributes, deprecated later.
+            (
+                AUTH_DEPRECATION_VERSION,
+                """
+            class ToScrapeComSpider(Spider):
+                http_user = "user"
+                http_pass = "pass"
+                http_auth_domain = "toscrape.com"
+            """,
+                (
+                    auth_issue(2, 4, "http_user", "HTTPAUTH_USER"),
+                    auth_issue(3, 4, "http_pass", "HTTPAUTH_PASS"),
+                    auth_issue(4, 4, "http_auth_domain", "HTTPAUTH_DOMAIN"),
+                ),
+            ),
+            (
+                "2.16.0",
+                """
+            class ToScrapeComSpider(Spider):
+                http_user = "user"
+            """,
+                NO_ISSUE,
+            ),
             # Older Scrapy versions.
             (
                 "2.13.2",
@@ -112,6 +147,28 @@ CASES: Cases = (
                 NO_ISSUE,
             ),
         )
+    ),
+    # An attribute deprecated in a later version, with its own guidance.
+    (
+        (
+            File("scrapy==2.18.0", path="requirements.txt"),
+            File(
+                "class ToScrapeComSpider(Spider):\n    download_delay = 1",
+                path="a.py",
+            ),
+        ),
+        (
+            PARTIAL_FREEZE,
+            ExpectedIssue(
+                "SCP48 deprecated spider attribute: deprecated in scrapy 2.18.0; "
+                "use the DOWNLOAD_DELAY setting, or DOWNLOAD_SLOTS for per-domain "
+                "delays, instead",
+                line=2,
+                column=4,
+                path="a.py",
+            ),
+        ),
+        {},
     ),
     # No frozen Scrapy version.
     (
