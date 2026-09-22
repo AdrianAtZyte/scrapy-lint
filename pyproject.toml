@@ -111,6 +111,7 @@ per-file-ignores = [
     # redefined-outer-name and unused-argument are how pytest fixtures work,
     # and test doubles are small classes that reach into what they double.
     "tests/**:duplicate-code,protected-access,redefined-outer-name,too-few-public-methods,unused-argument",
+    "tests/test_setting_requirements.py:too-many-lines",
 ]
 
 [tool.pytest.ini_options]
