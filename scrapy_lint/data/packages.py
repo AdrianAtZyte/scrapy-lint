@@ -14,6 +14,9 @@ PACKAGES = {
     "scrapy-splash": Package(
         replacements=("scrapy-playwright", "scrapy-zyte-api"),
     ),
+    "scrapy-zyte-smartproxy": Package(
+        lowest_supported_version=Version("2.0.0"),
+    ),
 }
 
 VERSION_CONFLICTS = (
