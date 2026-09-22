@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from .issues import Pos
 
 if TYPE_CHECKING:
-    from ast import arg, keyword
+    from ast import arg, expr, keyword
 
 SPACES = (b" ", b"\t")
 
@@ -83,7 +83,7 @@ def apply_edits(source: str, edits: list[Edit]) -> tuple[str, int]:
     return data.decode("utf-8"), applied
 
 
-def argument_removal_edit(source: str, node: arg | keyword) -> Edit:
+def argument_removal_edit(source: str, node: arg | keyword | expr) -> Edit:
     """Return an edit that removes the *node* argument from its call or
     signature, together with the comma that separates it from a neighboring
     argument, and with the rest of its line where it has that line to itself."""

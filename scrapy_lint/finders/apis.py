@@ -6,15 +6,20 @@ from ast import (
     Attribute,
     Call,
     ClassDef,
+    Constant,
     FunctionDef,
+    Name,
+    Starred,
     expr,
     keyword,
+    walk,
 )
+from logging import getLevelName
 from typing import TYPE_CHECKING
 
 from scrapy_lint.ast import definition_column, extract_literal_value, get_func_name
 from scrapy_lint.data.apis import API_METHODS, API_PARAMETERS
-from scrapy_lint.fixes import Fix, argument_removal_edit
+from scrapy_lint.fixes import Edit, Fix, argument_removal_edit
 from scrapy_lint.issues import DEPRECATED_API, REMOVED_API, Pos
 from scrapy_lint.versions import check_sunset
 
@@ -40,22 +45,88 @@ def by_name(apis: tuple[API, ...]) -> dict[str, list[API]]:
     return result
 
 
+def extends(api: API, bases: set[str]) -> bool:
+    """Return whether a class with the given *bases* extends the class that
+    defines *api*, which is matched by name suffix: subclasses keep the name of
+    their base class as a suffix, both in Scrapy (e.g. CrawlSpider) and in
+    Scrapy projects (e.g. BaseSpider), so a class of the project matches
+    without resolving its own base classes."""
+    return any(base.endswith(api.local_name) for base in bases)
+
+
 def implements(api: API, bases: set[str]) -> bool:
     """Return whether a class with the given *bases* is one that *api* applies
-    to.
+    to: an interface applies to every class that defines its methods, any other
+    API to the classes that extend the class that defines it."""
+    return api.interface or extends(api, bases)
 
-    An interface applies to every class that defines its methods. Otherwise
-    the class must extend the class that defines *api*, which is matched by
-    name suffix: subclasses keep the name of their base class as a suffix, both
-    in Scrapy (e.g. CrawlSpider) and in Scrapy projects (e.g. BaseSpider), so
-    a class of the project matches without resolving its own base classes.
-    """
-    return api.interface or any(base.endswith(api.local_name) for base in bases)
+
+def iter_self_calls(node: ClassDef) -> Generator[tuple[Call, str]]:
+    """Yield every call on ``self`` within *node*, with the name of the method
+    it calls."""
+    for child in walk(node):
+        if (
+            isinstance(child, Call)
+            and isinstance(child.func, Attribute)
+            and isinstance(child.func.value, Name)
+            and child.func.value.id == "self"
+        ):
+            yield child, child.func.attr
+
+
+def level_method(node: expr | None) -> str | None:
+    """Return the ``Spider.logger`` method for the logging level *node*, or
+    ``None`` where it is not one of the standard levels."""
+    if node is None:
+        return "debug"
+    if isinstance(node, Constant):
+        name = getLevelName(node.value) if isinstance(node.value, int) else None
+    else:
+        name = get_func_name(node)
+    return LEVEL_METHODS.get(name) if isinstance(name, str) else None
+
+
+def spider_log_fix(source: str, node: Call) -> Fix | None:
+    """Return a fix that turns the ``Spider.log()`` call *node* into a call of
+    the ``Spider.logger`` method for its level, or ``None`` where the level is
+    not a standard one or the arguments cannot be told apart."""
+    args = node.args
+    if not args or any(isinstance(arg, Starred) for arg in args):
+        return None
+    _, *rest = args
+    if len(rest) > 1:
+        return None
+    level: expr | keyword | None = (
+        rest[0]
+        if rest
+        else next((kw for kw in node.keywords if kw.arg == "level"), None)
+    )
+    method = level_method(level.value if isinstance(level, keyword) else level)
+    if method is None:
+        return None
+    func = node.func
+    assert func.end_lineno is not None
+    assert func.end_col_offset is not None
+    end = Pos(func.end_lineno, func.end_col_offset)
+    edits = [Edit(Pos.from_node(func), end, f"self.logger.{method}")]
+    if level is not None:
+        edits.append(argument_removal_edit(source, level))
+    return Fix(edits, message=f"replace with self.logger.{method}()")
 
 
 PARAMETERS = by_local_name(API_PARAMETERS)
 METHODS = by_name(API_METHODS)
 CLASS_METHODS = by_local_name(API_METHODS)
+CALL_FIXES = {("scrapy.Spider", "log"): spider_log_fix}
+LEVEL_METHODS = {
+    "DEBUG": "debug",
+    "INFO": "info",
+    "WARN": "warning",
+    "WARNING": "warning",
+    "ERROR": "error",
+    "FATAL": "critical",
+    "CRITICAL": "critical",
+}
 
 
 class APIIssueFinder:
@@ -105,6 +176,14 @@ class APIIssueFinder:
                 pos = Pos(statement.lineno, definition_column(statement))
                 subject = f"{api.name} method of {api.path}"
                 yield from self.check_api(api, pos, subject)
+        for call, name in iter_self_calls(node):
+            for api in METHODS.get(name, ()):
+                if not extends(api, bases):
+                    continue
+                subject = f"{api.name} method of {api.path}"
+                build_fix = CALL_FIXES.get((api.path, api.name))
+                fix = build_fix(self.source, call) if build_fix else None
+                yield from self.check_api(api, Pos.from_node(call), subject, fix=fix)
 
     def check_api(
         self,
@@ -112,6 +191,7 @@ class APIIssueFinder:
         pos: Pos,
         subject: str,
         kw: keyword | None = None,
+        fix: Fix | None = None,
     ) -> Generator[Issue]:
         version = self.project.frozen_requirements.get(api.package)
         if version is None:
@@ -125,7 +205,8 @@ class APIIssueFinder:
             and not self.is_deprecated_value(api, kw.value)
         ):
             return
-        fix = self.build_fix(api, kw) if sunset.removed and kw else None
+        if kw is not None and sunset.removed:
+            fix = self.build_fix(api, kw)
         yield sunset.issue(pos, subject=subject, fix=fix)
 
     @staticmethod
