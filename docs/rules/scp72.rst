@@ -16,9 +16,9 @@ Only the feature version is compared, i.e. ``2.13`` in ``2.13.3``, so a
 different patch version, such as one that :ref:`implements security fixes
 <scp15>`, is not reported.
 
-A Scrapy version newer than the one of the newest stack is not reported either,
-since using the newest stack is the only way to use a Scrapy release for which
-no stack exists yet.
+A Scrapy version newer than the one of the newest stack is not reported
+either: pairing it with the newest stack is the only way to use a Scrapy
+release for which no matching stack exists yet.
 
 
 Why is this bad?
