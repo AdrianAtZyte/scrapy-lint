@@ -50,3 +50,11 @@ Use instead:
     class Command(ScrapyCommand):
         def long_desc(self):
             return "Long description of my command"
+
+
+Fix
+===
+
+This rule is automatically fixable with the ``--fix`` command-line option for
+calls to ``Spider.log()``, which become calls to the ``Spider.logger`` method
+of their logging level, e.g. ``self.logger.info()`` for ``logging.INFO``.
