@@ -1964,6 +1964,70 @@ SETTINGS = {
         type=SettingType.DICT,
         default_value=VersionedValue({}),
     ),
+    # duplicate-url-discarder plugin settings, in order of appearance in
+    # https://github.com/zytedata/duplicate-url-discarder#readme
+    "DUD_FALLBACK_REQUEST_FINGERPRINTER_CLASS": Setting(
+        package="duplicate-url-discarder",
+        type=SettingType.OPT_OBJ,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.1.0")),
+    ),
+    "DUD_LOAD_RULE_PATHS": Setting(
+        package="duplicate-url-discarder",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(added_in=Version("0.1.0")),
+    ),
+    "DUD_ATTRIBUTES_PER_ITEM": Setting(
+        package="duplicate-url-discarder",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.2.0")),
+    ),
+    # zyte-common-items plugin settings, documented in
+    # https://zyte-common-items.readthedocs.io/en/latest/reference/scrapy.html
+    "ITEM_PROBABILITY_THRESHOLDS": Setting(
+        package="zyte-common-items",
+        type=SettingType.DICT,
+        default_value=VersionedValue({"default": 0.1}),
+        versioning=Versioning(added_in=Version("0.19.0")),
+    ),
+    # zyte-spider-templates plugin settings, in order of appearance in
+    # https://zyte-spider-templates.readthedocs.io/en/latest/reference/settings.html
+    "NAVIGATION_DEPTH_LIMIT": Setting(
+        package="zyte-spider-templates",
+        type=SettingType.INT,
+        default_value=VersionedValue(0),
+    ),
+    "MAX_REQUESTS_PER_SEED": Setting(
+        package="zyte-spider-templates",
+        type=SettingType.INT,
+        default_value=VersionedValue(0),
+    ),
+    "OFFSITE_REQUESTS_PER_SEED_ENABLED": Setting(
+        package="zyte-spider-templates",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+    ),
+    "ONLY_FEEDS_ENABLED": Setting(
+        package="zyte-spider-templates",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+    ),
+    "INCREMENTAL_CRAWL_BATCH_SIZE": Setting(
+        package="zyte-spider-templates",
+        type=SettingType.INT,
+        default_value=VersionedValue(50),
+    ),
+    "INCREMENTAL_CRAWL_COLLECTION_NAME": Setting(
+        package="zyte-spider-templates",
+        type=SettingType.OPT_STR,
+    ),
+    "INCREMENTAL_CRAWL_ENABLED": Setting(
+        package="zyte-spider-templates",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+    ),
     # scrapy-zyte-api plugin settings, in order of appearance in
     # https://scrapy-zyte-api.readthedocs.io/en/latest/reference/settings.html
     "ZYTE_API_AUTO_FIELD_STATS": Setting(package="scrapy-zyte-api"),
