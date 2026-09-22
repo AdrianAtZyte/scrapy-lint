@@ -990,6 +990,12 @@ CASES: Cases = (
                     ),
                 ),
             ),
+            # An entry with a non-literal key or value cannot be matched.
+            (
+                "scrapy-zyte-api==0.36.0",
+                f'{ZYTE_API_ADDON}DOWNLOAD_HANDLERS = {{"http": Addon}}',
+                NO_ISSUE,
+            ),
             # A list item an add-on already adds is redundant.
             (
                 "zyte-spider-templates==0.12.0",

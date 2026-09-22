@@ -41,6 +41,10 @@ def test_default_equality():
     assert Default({"a": 1}) != {"a": 1}
 
 
+def test_default_repr():
+    assert repr(Default({"a": 1})) == "Default({'a': 1})"
+
+
 def test_default_merge():
     settings = VersionedSettings(
         history={
