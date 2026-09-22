@@ -11,6 +11,7 @@ from scrapy_lint.data.settings import FEEDS_KEY_VERSION_ADDED
 from scrapy_lint.finders.settings.types import (
     check_component_path,
     has_feed_uri_params,
+    has_valid_authority,
     is_import_path,
     is_path_obj,
 )
@@ -148,6 +149,9 @@ def check_feed_uri(
             and not has_feed_uri_params(path)
         ):
             yield unneeded_str
+        if not has_valid_authority(node.value):
+            detail = "invalid URI, e.g. credentials not percent-encoded"
+            yield Issue(INVALID_SETTING_VALUE, pos, detail)
 
 
 def check_feed_class_list(
@@ -439,6 +443,20 @@ def check_user_agent(node: expr, **_) -> Generator[Issue]:
         yield issue
 
 
+ZYTE_API_KEY_PATTERN = re.compile(r"[0-9a-f]{32}")
+
+
+def check_zyte_api_key(node: expr, **_) -> Generator[Issue]:
+    if not isinstance(node, Constant):
+        return
+    if not isinstance(node.value, str) or not ZYTE_API_KEY_PATTERN.fullmatch(
+        node.value
+    ):
+        yield Issue(
+            INVALID_SETTING_VALUE, Pos.from_node(node), "must be a Zyte API key"
+        )
+
+
 def check_secret(node: expr, *, setting: Setting, project: Project) -> Generator[Issue]:
     if not isinstance(node, Constant) or not isinstance(node.value, str):
         return
@@ -458,4 +476,5 @@ VALUE_CHECKERS: dict[str, ValueChecker] = {
     "FEED_URI": check_feed_uri,
     "FEEDS": check_feeds,
     "USER_AGENT": check_user_agent,
+    "ZYTE_API_KEY": check_zyte_api_key,
 }
