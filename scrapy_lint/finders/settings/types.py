@@ -6,12 +6,16 @@ from ast import Call, Constant, Dict, Lambda, List, Set, Tuple, expr
 from collections.abc import Generator, Iterable
 from functools import partial
 from typing import TYPE_CHECKING, Protocol
+from urllib.parse import urlsplit
 
 from packaging.version import Version
 
 from scrapy_lint.ast import is_dict, iter_dict
+from scrapy_lint.data.addons import ADDONS
+from scrapy_lint.data.settings import SETTINGS
 from scrapy_lint.issues import (
     INVALID_SETTING_VALUE,
+    MISSING_COMPONENT_REQUIREMENT,
     UNIMPORTABLE_COMPONENT,
     UNNEEDED_IMPORT_PATH,
     UNNEEDED_PATH_STRING,
@@ -25,6 +29,13 @@ from scrapy_lint.versions import UNKNOWN_UNSUPPORTED_VERSION, UnknownUnsupported
 if TYPE_CHECKING:
     from scrapy_lint.context import Project
 
+# Packages that a component may come from. An import path whose top-level
+# module, with underscores replaced by hyphens, matches none of them may come
+# from the project itself, so it is not checked against project requirements.
+KNOWN_PACKAGES = {setting.package for setting in SETTINGS.values()} | {
+    addon.package for addon in ADDONS.values()
+}
+
 
 def check_component_path(
     node: Constant,
@@ -32,6 +43,13 @@ def check_component_path(
     allowed: set[str] | None = None,
 ) -> Generator[Issue]:
     assert isinstance(node.value, str)
+    package = node.value.split(".", 1)[0].replace("_", "-")
+    if (
+        package in KNOWN_PACKAGES
+        and project.packages
+        and package not in project.packages
+    ):
+        yield Issue(MISSING_COMPONENT_REQUIREMENT, Pos.from_node(node), package)
     yield from check_import_path_need(node, project, allowed)
     if project.is_missing_import_path(node.value):
         yield Issue(UNIMPORTABLE_COMPONENT, Pos.from_node(node))
@@ -52,6 +70,19 @@ def check_import_path_need(
 
 def has_feed_uri_params(value: str) -> bool:
     return bool(re.search(r"%\([^)]+\)[sdifouxXeEgGcr]", value))
+
+
+def has_valid_authority(uri: str) -> bool:
+    try:
+        parts = urlsplit(uri)
+        if not has_feed_uri_params(parts.netloc):
+            # A character that credentials must percent-encode, such as a
+            # slash, cuts the authority short, leaving part of the credentials
+            # where the port belongs. urlsplit only parses the port on access.
+            _ = parts.port
+    except ValueError:
+        return False
+    return True
 
 
 def is_import_path(value: str, **_) -> bool:
