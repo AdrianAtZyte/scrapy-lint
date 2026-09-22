@@ -11,8 +11,9 @@ Finds out if your :ref:`requirements file <requirements>` contains a package
 that scrapy-lint supports with a frozen [#f1]_ version that scrapy-lint does
 *not* support.
 
-scrapy-lint supports many packages in the Scrapy ecosystem, but expects the
-following minimum versions of them to be used in your project:
+scrapy-lint supports many packages in the Scrapy ecosystem. If your project
+uses any of them, scrapy-lint expects at least the following minimum
+versions:
 
 .. include:: ../_package_versions.rst
 

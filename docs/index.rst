@@ -9,8 +9,10 @@ scrapy-lint documentation
 Supported versions
 ==================
 
-scrapy-lint expects at least the following versions of these packages to be
-used in your project. See :ref:`SCP14 <scp14>` for details.
+If your project uses any of the following packages, scrapy-lint expects at
+least these versions of them. With an older version, scrapy-lint may
+misreport issues and fail to report others. See :ref:`SCP14 <scp14>` for
+details.
 
 .. include:: _package_versions.rst
 
