@@ -19,6 +19,15 @@ API_PARAMETERS = (
 
 API_METHODS = (
     API(
+        path="scrapy.FormRequest",
+        name="from_response",
+        versioning=Versioning(
+            deprecated_in=Version("2.16.0"),
+            sunset_guidance="use form2request instead",
+        ),
+        discouraged_in=UNKNOWN_UNSUPPORTED_VERSION,
+    ),
+    API(
         path="scrapy.commands.ScrapyCommand",
         name="help",
         versioning=Versioning(
@@ -50,6 +59,15 @@ API_METHODS = (
             deprecated_in=Version("2.19.0"),
             sunset_guidance="set the REQUEST_FINGERPRINTER_CLASS setting instead",
         ),
+    ),
+    API(
+        path="scrapy.Spider",
+        name="log",
+        versioning=Versioning(
+            deprecated_in=Version("2.18.0"),
+            sunset_guidance="use the methods of Spider.logger instead",
+        ),
+        discouraged_in=UNKNOWN_UNSUPPORTED_VERSION,
     ),
     API(
         path="scrapy.Spider",

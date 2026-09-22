@@ -75,6 +75,7 @@ CASES: Cases = (
                                 "MAX_REQUESTS",
                                 (
                                     "MAX_NEXT_REQUESTS",
+                                    "MAX_REQUESTS_PER_SEED",
                                     "ZYTE_API_MAX_REQUESTS",
                                 ),
                             ),

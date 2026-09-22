@@ -484,19 +484,33 @@ CASES: Cases = (
             (
                 ("scrapy==2.12.0",),
                 'ADDONS = {"scrapy_zyte_api.Addon": 500}',
-                ExpectedIssue(
-                    "SCP41 unneeded import path",
-                    column=10,
-                    path=path,
+                (
+                    ExpectedIssue(
+                        "SCP41 unneeded import path",
+                        column=10,
+                        path=path,
+                    ),
+                    ExpectedIssue(
+                        "SCP66 missing component requirement: scrapy-zyte-api",
+                        column=10,
+                        path=path,
+                    ),
                 ),
             ),
             (
                 ("scrapy==2.12.0",),
                 'ADDONS = {"scrapy_zyte_api.addon.Addon": 500}',
-                ExpectedIssue(
-                    "SCP41 unneeded import path",
-                    column=10,
-                    path=path,
+                (
+                    ExpectedIssue(
+                        "SCP41 unneeded import path",
+                        column=10,
+                        path=path,
+                    ),
+                    ExpectedIssue(
+                        "SCP66 missing component requirement: scrapy-zyte-api",
+                        column=10,
+                        path=path,
+                    ),
                 ),
             ),
             (
@@ -591,6 +605,11 @@ CASES: Cases = (
                         column=10,
                         path=path,
                     ),
+                    ExpectedIssue(
+                        "SCP66 missing component requirement: scrapy-poet",
+                        column=10,
+                        path=path,
+                    ),
                 ),
             ),
             # SCP41 unneeded import path (base setting)
@@ -672,6 +691,46 @@ CASES: Cases = (
                         path=path,
                     ),
                     ExpectedIssue("SCP41 unneeded import path", column=22, path=path),
+                ),
+            ),
+            # SCP66 missing component requirement
+            (
+                (),
+                'DOWNLOADER_MIDDLEWARES = {"scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 633}',
+                NO_ISSUE,
+            ),
+            (
+                ("scrapy==2.13.0",),
+                'DOWNLOADER_MIDDLEWARES = {"scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 633}',
+                (
+                    ExpectedIssue("SCP41 unneeded import path", column=26, path=path),
+                    ExpectedIssue(
+                        "SCP66 missing component requirement: scrapy-zyte-api",
+                        column=26,
+                        path=path,
+                    ),
+                ),
+            ),
+            (
+                ("scrapy==2.13.0", "scrapy-zyte-api==0.30.0"),
+                'DOWNLOADER_MIDDLEWARES = {"scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 633}',
+                ExpectedIssue("SCP41 unneeded import path", column=26, path=path),
+            ),
+            (
+                ("scrapy==2.13.0",),
+                'DOWNLOADER_MIDDLEWARES = {"myproject.middlewares.MyMiddleware": 543}',
+                ExpectedIssue("SCP41 unneeded import path", column=26, path=path),
+            ),
+            (
+                ("scrapy==2.13.0",),
+                'SCHEDULER = "scrapy_redis.scheduler.Scheduler"',
+                (
+                    ExpectedIssue("SCP41 unneeded import path", column=12, path=path),
+                    ExpectedIssue(
+                        "SCP66 missing component requirement: scrapy-redis",
+                        column=12,
+                        path=path,
+                    ),
                 ),
             ),
         )
@@ -843,14 +902,19 @@ CASES: Cases = (
                 ),
             ),
             # The add-on sets this one to whatever the project uses as
-            # download handler, so its value is unknown.
+            # download handler, so its value is unknown (no SCP17).
             (
                 "scrapy-zyte-api==0.36.0",
                 (
                     f"{ZYTE_API_ADDON}ZYTE_API_FALLBACK_HTTP_HANDLER = "
                     '"scrapy.core.downloader.handlers.http.HTTPDownloadHandler"'
                 ),
-                NO_ISSUE,
+                ExpectedIssue(
+                    "SCP41 unneeded import path",
+                    line=3,
+                    column=33,
+                    path="a.py",
+                ),
             ),
             # Add-ons are known one by one, so when 2 of them set the same
             # setting the resulting value is unknown, whichever of them the
@@ -884,6 +948,18 @@ CASES: Cases = (
                     '{"scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 1000}'
                 ),
                 (
+                    ExpectedIssue(
+                        "SCP76 incompatible requirement: scrapy 2.14.0+ "
+                        "requires scrapy-zyte-api 0.32.0+",
+                        line=2,
+                        path="requirements.txt",
+                    ),
+                    ExpectedIssue(
+                        "SCP76 incompatible requirement: scrapy 2.18.0+ "
+                        "requires scrapy-zyte-api 0.36.0+",
+                        line=2,
+                        path="requirements.txt",
+                    ),
                     ExpectedIssue(
                         "SCP17 redundant setting value: already set by the "
                         "scrapy-zyte-api add-on",
