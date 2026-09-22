@@ -5,8 +5,9 @@ from inspect import cleandoc
 
 import pytest
 
+from scrapy_lint.data.packages import PACKAGES
 from scrapy_lint.finders.domains import UrlInAllowedDomainsIssueFinder
-from scrapy_lint.finders.spiders import UnneededStartIssueFinder
+from scrapy_lint.finders.spiders import StartUrlIssueFinder, UnneededStartIssueFinder
 from scrapy_lint.fixes import Edit, apply_edits
 from scrapy_lint.issues import Pos
 
@@ -14,6 +15,7 @@ from . import File
 from .helpers import fix_project
 
 PATH = "a.py"
+SCRAPY_HIGHEST_KNOWN = PACKAGES["scrapy"].highest_known_version
 
 
 # (source, expected output, number of edits applied)
@@ -380,6 +382,64 @@ CASES = (
         'class ProductItem(scrapy.Item):\n    #: Name, e.g. "Chair"\n    name = scrapy.Field()\n',
         0,
     ),
+    # SCP67: a string start_url is renamed and wrapped in a list.
+    (
+        cleandoc(
+            """
+            class MySpider(Spider):
+                start_url = "https://toscrape.com"
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            class MySpider(Spider):
+                start_urls = ["https://toscrape.com"]
+            """,
+        )
+        + "\n",
+        1,
+    ),
+    # A sequence value is renamed without being wrapped.
+    (
+        'class MySpider(Spider):\n    start_url = ("https://toscrape.com",)\n',
+        'class MySpider(Spider):\n    start_urls = ("https://toscrape.com",)\n',
+        1,
+    ),
+    # A value that could be either a URL or a sequence of URLs is not rewritten.
+    (
+        "class MySpider(Spider):\n    start_url = URL\n",
+        "class MySpider(Spider):\n    start_url = URL\n",
+        0,
+    ),
+    # SCP70: module-level and root loggers become self.logger.
+    (
+        cleandoc(
+            """
+            logger = logging.getLogger(__name__)
+
+
+            class MySpider(Spider):
+                def parse(self, response):
+                    logger.info("a")
+                    logging.warning("b")
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            logger = logging.getLogger(__name__)
+
+
+            class MySpider(Spider):
+                def parse(self, response):
+                    self.logger.info("a")
+                    self.logger.warning("b")
+            """,
+        )
+        + "\n",
+        2,
+    ),
 )
 
 
@@ -388,6 +448,176 @@ def test_fix(source: str, expected: str, fixed: int):
     fix_project(
         File(source, path=PATH),
         File(expected, path=PATH),
+        expected_fixed=fixed,
+    )
+
+
+# (source, expected output) for SCP75, where the removed argument is dropped
+# together with the comma that separates it from a neighboring argument.
+API_CASES = (
+    (
+        "PythonItemExporter(binary=False)\n",
+        "PythonItemExporter()\n",
+    ),
+    (
+        "PythonItemExporter(binary=False, indent=2)\n",
+        "PythonItemExporter(indent=2)\n",
+    ),
+    (
+        "PythonItemExporter(indent=2, binary=False)\n",
+        "PythonItemExporter(indent=2)\n",
+    ),
+    (
+        "PythonItemExporter(indent=2, binary =  False)\n",
+        "PythonItemExporter(indent=2)\n",
+    ),
+    (
+        "PythonItemExporter(binary=False,)\n",
+        "PythonItemExporter()\n",
+    ),
+    # An argument that has a line to itself takes the whole line with it.
+    (
+        cleandoc(
+            """
+            PythonItemExporter(
+                binary=False,
+                indent=2,
+            )
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            PythonItemExporter(
+                indent=2,
+            )
+            """,
+        )
+        + "\n",
+    ),
+    (
+        cleandoc(
+            """
+            PythonItemExporter(
+                indent=2,
+                binary=False
+            )
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            PythonItemExporter(
+                indent=2,
+            )
+            """,
+        )
+        + "\n",
+    ),
+    # A parenthesized value is removed along with its parentheses.
+    (
+        cleandoc(
+            """
+            PythonItemExporter(binary=(
+                False
+            ), indent=2)
+            """,
+        )
+        + "\n",
+        "PythonItemExporter(indent=2)\n",
+    ),
+    # Values that cannot be resolved statically are removed as well: on these
+    # Scrapy versions the parameter is gone whatever its value.
+    (
+        "PythonItemExporter(binary=flag)\n",
+        "PythonItemExporter()\n",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    API_CASES,
+    ids=range(len(API_CASES)),
+)
+def test_fix_removed_api(source: str, expected: str):
+    fix_project(
+        (
+            File("", path="scrapy.cfg"),
+            File(f"scrapy=={SCRAPY_HIGHEST_KNOWN}", path="requirements.txt"),
+            File(source, path=PATH),
+        ),
+        File(expected, path=PATH),
+        expected_fixed=1,
+    )
+
+
+def spider_method(call: str) -> str:
+    """Return a spider whose parse() method consists of *call*."""
+    body = "".join(f"        {line}\n" for line in call.splitlines())
+    return f"class MySpider(Spider):\n    def parse(self, response):\n{body}"
+
+
+# (source, expected output, number of edits applied) for Spider.log() calls,
+# which become calls to the Spider.logger method of their level.
+LOG_CASES = (
+    ('self.log("a")', 'self.logger.debug("a")', 1),
+    ('self.log(f"{response.url}")', 'self.logger.debug(f"{response.url}")', 1),
+    ('self.log("a", level=logging.INFO)', 'self.logger.info("a")', 2),
+    ('self.log("a", logging.WARNING)', 'self.logger.warning("a")', 2),
+    ('self.log("a", level=WARN)', 'self.logger.warning("a")', 2),
+    ('self.log("a", level=40)', 'self.logger.error("a")', 2),
+    (
+        'self.log("a", level=logging.CRITICAL, extra={"b": 1})',
+        'self.logger.critical("a", extra={"b": 1})',
+        2,
+    ),
+    (
+        cleandoc(
+            """
+            self.log(
+                "a",
+                level=logging.INFO,
+            )
+            """,
+        ),
+        cleandoc(
+            """
+            self.logger.info(
+                "a",
+            )
+            """,
+        ),
+        2,
+    ),
+    # Levels that are not a standard one, and arguments that cannot be told
+    # apart, are left alone.
+    *(
+        (call, call, 0)
+        for call in (
+            'self.log("a", level=self.level)',
+            'self.log("a", level=25)',
+            "self.log(*args)",
+            'self.log("a", logging.INFO, extra)',
+            "self.log()",
+        )
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected", "fixed"),
+    LOG_CASES,
+    ids=range(len(LOG_CASES)),
+)
+def test_fix_spider_log(source: str, expected: str, fixed: int):
+    fix_project(
+        (
+            File("", path="scrapy.cfg"),
+            File(f"scrapy=={SCRAPY_HIGHEST_KNOWN}", path="requirements.txt"),
+            File(spider_method(source), path=PATH),
+        ),
+        File(spider_method(expected), path=PATH),
         expected_fixed=fixed,
     )
 
@@ -434,3 +664,80 @@ def test_build_start_fix_without_source():
     issues = list(UnneededStartIssueFinder()(node))
     assert len(issues) == 1
     assert issues[0].fix is None
+
+
+def test_build_start_url_fix_without_source():
+    finder = StartUrlIssueFinder()
+    statement = ast.parse('start_url = "https://toscrape.com"').body[0]
+    assert isinstance(statement, ast.Assign)
+    assert finder.build_fix(statement) is None
+
+
+# (source, expected output) for SCP28 and SCP30, where a deprecated or removed
+# setting is renamed as the setting that replaces it.
+SETTING_CASES = (
+    (
+        'settings["CONCURRENT_REQUESTS_PER_IP"]\n',
+        'settings["CONCURRENT_REQUESTS_PER_DOMAIN"]\n',
+    ),
+    # The original quote style is preserved.
+    (
+        "settings.getint('CONCURRENT_REQUESTS_PER_IP')\n",
+        "settings.getint('CONCURRENT_REQUESTS_PER_DOMAIN')\n",
+    ),
+    (
+        'settings.update({"CONCURRENT_REQUESTS_PER_IP": 1})\n',
+        'settings.update({"CONCURRENT_REQUESTS_PER_DOMAIN": 1})\n',
+    ),
+    # A removed setting is renamed as well.
+    (
+        'settings["REDIRECT_MAX_METAREFRESH_DELAY"]\n',
+        'settings["METAREFRESH_MAXDELAY"]\n',
+    ),
+    # A literal that is not a plain, single-line string is left alone.
+    (
+        'settings["""CONCURRENT_REQUESTS_PER_IP"""]\n',
+        'settings["""CONCURRENT_REQUESTS_PER_IP"""]\n',
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    SETTING_CASES,
+    ids=range(len(SETTING_CASES)),
+)
+def test_fix_renamed_setting(source: str, expected: str):
+    fix_project(
+        (
+            File("", path="scrapy.cfg"),
+            File(f"scrapy=={SCRAPY_HIGHEST_KNOWN}", path="requirements.txt"),
+            File(source, path=PATH),
+        ),
+        File(expected, path=PATH),
+        expected_fixed=int(source != expected),
+    )
+
+
+def test_fix_renamed_setting_in_setting_module():
+    fix_project(
+        (
+            File("[settings]\ndefault = a", path="scrapy.cfg"),
+            File(f"scrapy=={SCRAPY_HIGHEST_KNOWN}", path="requirements.txt"),
+            File("CONCURRENT_REQUESTS_PER_IP = 1\n", path=PATH),
+        ),
+        File("CONCURRENT_REQUESTS_PER_DOMAIN = 1\n", path=PATH),
+        expected_fixed=1,
+    )
+
+
+def test_deprecated_setting_without_replacement_is_not_fixed():
+    fix_project(
+        (
+            File("", path="scrapy.cfg"),
+            File(f"scrapy=={SCRAPY_HIGHEST_KNOWN}", path="requirements.txt"),
+            File('settings["FEED_URI"]\n', path=PATH),
+        ),
+        File('settings["FEED_URI"]\n', path=PATH),
+        expected_fixed=0,
+    )
