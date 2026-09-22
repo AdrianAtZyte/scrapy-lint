@@ -7,6 +7,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 from scrapy_lint.data.packages import PACKAGES, VERSION_CONFLICTS
+from scrapy_lint.data.stacks import LATEST_STACK_SCRAPY_VERSION
 from scrapy_lint.finders.requirements import RequirementsIssueFinder
 
 from . import (
@@ -24,6 +25,7 @@ from .helpers import check_project
 if TYPE_CHECKING:
     from scrapy_lint.packages import VersionConflict
 
+LATEST_KNOWN_STACK = f"scrapy:{LATEST_STACK_SCRAPY_VERSION}-20250721"
 SCRAPY_FUTURE_VERSION = Version("3.0.0")
 SCRAPY_HIGHEST_KNOWN = SCRAPY_LATEST
 SCRAPY_LOWEST_SAFE = PACKAGES["scrapy"].lowest_safe_version
@@ -199,8 +201,8 @@ CASES: Cases = (
                 File("", path="scrapy.cfg"),
                 File(
                     cleandoc(
-                        """
-                        stack: scrapy:2.13-20250721
+                        f"""
+                        stack: {LATEST_KNOWN_STACK}
                         requirements:
                           file: requirements.txt
                         """
