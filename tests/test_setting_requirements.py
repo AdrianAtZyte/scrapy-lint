@@ -885,6 +885,18 @@ CASES: Cases = (
                 ),
                 (
                     ExpectedIssue(
+                        "SCP76 incompatible requirement: scrapy 2.14.0+ "
+                        "requires scrapy-zyte-api 0.32.0+",
+                        line=2,
+                        path="requirements.txt",
+                    ),
+                    ExpectedIssue(
+                        "SCP76 incompatible requirement: scrapy 2.18.0+ "
+                        "requires scrapy-zyte-api 0.36.0+",
+                        line=2,
+                        path="requirements.txt",
+                    ),
+                    ExpectedIssue(
                         "SCP17 redundant setting value: already set by the "
                         "scrapy-zyte-api add-on",
                         line=3,
