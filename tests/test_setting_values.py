@@ -162,6 +162,13 @@ CASES: Cases = (
                         ("FEEDS", "{}"),
                         ("FEEDS", "{a: b}"),
                         ("FEEDS", "{a: {b: c}}"),
+                        ("FEEDS", '{"ftp://user:p%40ss@example.com:21/f.json": {}}'),
+                        ("FEEDS", '{"ftp://[::1]:21/f.json": {}}'),
+                        # A URI param can also stand for the port.
+                        ("FEEDS", '{"ftp://example.com:%(port)s/f.json": {}}'),
+                        # Outside the authority, "@" is part of the path.
+                        ("FEEDS", '{"s3://bucket/jane.doe@example.com.csv": {}}'),
+                        ("FEED_URI", '"ftp://user:p%40ss@example.com/f.json"'),
                         ("JOBDIR", "foo"),
                         ("JOBDIR", "foo()"),
                         ("JOBDIR", '"/tmp/foo"'),
@@ -221,6 +228,9 @@ CASES: Cases = (
                         ("SPIDER_CONTRACTS", '"{}"'),
                         ("SPIDER_CONTRACTS", "{}"),
                         ("SPIDER_CONTRACTS", "None"),
+                        ("ZYTE_API_KEY", "foo"),
+                        ("ZYTE_API_KEY", "foo()"),
+                        ("ZYTE_API_KEY", 'os.environ["ZYTE_API_KEY"]'),
                         # Unknown setting type
                         ("SERVICE_ROOT", "foo"),
                         ("SERVICE_ROOT", "foo()"),
@@ -532,6 +542,23 @@ CASES: Cases = (
                                 *(
                                     (
                                         "FEEDS",
+                                        f'{{"{uri}": {{}}}}',
+                                        1,
+                                        (
+                                            "invalid URI, e.g. credentials not "
+                                            "percent-encoded"
+                                        ),
+                                    )
+                                    for uri in (
+                                        "ftp://user:pa/ss@example.com/f.json",
+                                        "ftp://user:pa?ss@example.com/f.json",
+                                        "ftp://user:pa#ss@example.com/f.json",
+                                        "s3://key:sec/ret@bucket/f.csv",
+                                    )
+                                ),
+                                *(
+                                    (
+                                        "FEEDS",
                                         value,
                                         4,
                                         (
@@ -718,6 +745,12 @@ CASES: Cases = (
                                     ),
                                 ),
                                 (
+                                    "FEED_URI",
+                                    '"ftp://user:pa/ss@example.com/f.json"',
+                                    0,
+                                    "invalid URI, e.g. credentials not percent-encoded",
+                                ),
+                                (
                                     "PERIODIC_LOG_DELTA",
                                     "False",
                                     0,
@@ -765,6 +798,18 @@ CASES: Cases = (
                                     13,
                                     "include/exclude list items must be strings",
                                 ),
+                                *(
+                                    ("ZYTE_API_KEY", value, 0, "must be a Zyte API key")
+                                    for value in (
+                                        "''",
+                                        "'YOUR_API_KEY'",
+                                        "'0123456789abcdef0123456789abcde'",
+                                        "'0123456789abcdef0123456789abcdefa'",
+                                        "'0123456789abcdef0123456789abcdeg'",
+                                        "None",
+                                        "123",
+                                    )
+                                ),
                             )
                         ),
                         *(
@@ -810,6 +855,10 @@ CASES: Cases = (
                                 ("FTP_PASSWORD", "'hunter2'"),
                                 ("MAIL_PASS", "'hunter2'"),
                                 ("TELNETCONSOLE_PASSWORD", "'hunter2'"),
+                                (
+                                    "ZYTE_API_KEY",
+                                    "'0123456789abcdef0123456789abcdef'",
+                                ),
                             )
                         ),
                         # SCP42 unneeded path string
