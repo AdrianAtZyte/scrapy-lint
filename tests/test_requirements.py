@@ -440,24 +440,43 @@ CASES: Cases = (
                 (
                     f"scrapy=={SCRAPY_HIGHEST_KNOWN}\n{dependency}=={dependency_version}",
                     (
-                        tuple(
-                            ExpectedIssue(
-                                "SCP76 incompatible requirement: "
-                                f"{conflict.package} {conflict.since}+ "
-                                f"requires {conflict.dependency} "
-                                f"{conflict.lowest_compatible}+",
-                                line=2,
-                                path=path,
+                        *(
+                            (
+                                ExpectedIssue(
+                                    "SCP14 unsupported requirement: scrapy-lint "
+                                    f"only supports {dependency} "
+                                    f"{lowest_supported}+",
+                                    line=2,
+                                    path=path,
+                                ),
                             )
-                            for conflict in conflicts
-                        )
-                        if broken
-                        else ()
+                            if lowest_supported
+                            and dependency_version < lowest_supported
+                            else ()
+                        ),
+                        *(
+                            (
+                                ExpectedIssue(
+                                    "SCP76 incompatible requirement: "
+                                    f"{conflict.package} {conflict.since}+ "
+                                    f"requires {conflict.dependency} "
+                                    f"{conflict.lowest_compatible}+",
+                                    line=2,
+                                    path=path,
+                                )
+                                for conflict in conflicts
+                            )
+                            if broken
+                            else ()
+                        ),
                     ),
                 )
                 for dependency, conflicts in CONFLICTS_BY_DEPENDENCY.items()
+                for lowest_supported in (
+                    getattr(PACKAGES.get(dependency), "lowest_supported_version", None),
+                )
                 for dependency_version, broken in (
-                    (lowest_supported(dependency), True),
+                    (Version("0"), True),
                     (max(c.lowest_compatible for c in conflicts), False),
                 )
             ),

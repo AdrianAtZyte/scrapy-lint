@@ -69,7 +69,7 @@ class PythonIssueFinder(NodeVisitor):
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
         spider_logger_issue_finder = SpiderLoggerIssueFinder()
-        import_issue_finder = ImportIssueFinder(setting_checker.project)
+        import_issue_finder = ImportIssueFinder(setting_checker.project, source)
 
         self.finders: dict[str, Sequence[IssueFinder]] = {
             "Assign": [
