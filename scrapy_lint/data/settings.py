@@ -1378,104 +1378,216 @@ SETTINGS = {
     # spidermon plugin settings, in order of appearance in the docs:
     # https://spidermon.readthedocs.io/en/latest/settings.html
     "SPIDERMON_ENABLED": Setting(package="spidermon", type=SettingType.BOOL),
-    "SPIDERMON_EXPRESSIONS_MONITOR_CLASS": Setting(package="spidermon"),
-    "SPIDERMON_PERIODIC_MONITORS": Setting(package="spidermon"),
-    "SPIDERMON_SPIDER_CLOSE_MONITORS": Setting(package="spidermon"),
-    "SPIDERMON_SPIDER_CLOSE_EXPRESSION_MONITORS": Setting(package="spidermon"),
-    "SPIDERMON_SPIDER_OPEN_MONITORS": Setting(package="spidermon"),
-    "SPIDERMON_SPIDER_OPEN_EXPRESSION_MONITORS": Setting(package="spidermon"),
-    "SPIDERMON_ENGINE_STOP_MONITORS": Setting(package="spidermon"),
-    "SPIDERMON_ENGINE_STOP_EXPRESSION_MONITORS": Setting(package="spidermon"),
-    "SPIDERMON_ADD_FIELD_COVERAGE": Setting(package="spidermon"),
-    "SPIDERMON_FIELD_COVERAGE_SKIP_NONE": Setting(package="spidermon"),
-    "SPIDERMON_LIST_FIELDS_COVERAGE_LEVELS": Setting(package="spidermon"),
+    "SPIDERMON_EXPRESSIONS_MONITOR_CLASS": Setting(
+        package="spidermon",
+        type=SettingType.OPT_OBJ,
+        default_value=VersionedValue(None),
+    ),
+    "SPIDERMON_PERIODIC_MONITORS": Setting(
+        package="spidermon",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("1.3.0")),
+    ),
+    "SPIDERMON_SPIDER_CLOSE_MONITORS": Setting(
+        package="spidermon",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+    ),
+    "SPIDERMON_SPIDER_CLOSE_EXPRESSION_MONITORS": Setting(
+        package="spidermon",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+    ),
+    "SPIDERMON_SPIDER_OPEN_MONITORS": Setting(
+        package="spidermon",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+    ),
+    "SPIDERMON_SPIDER_OPEN_EXPRESSION_MONITORS": Setting(
+        package="spidermon",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+    ),
+    "SPIDERMON_ENGINE_STOP_MONITORS": Setting(
+        package="spidermon",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(added_in=Version("1.9.0")),
+    ),
+    "SPIDERMON_ENGINE_STOP_EXPRESSION_MONITORS": Setting(
+        package="spidermon",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(added_in=Version("1.9.0")),
+    ),
+    "SPIDERMON_ADD_FIELD_COVERAGE": Setting(
+        package="spidermon",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.14.0")),
+    ),
+    "SPIDERMON_FIELD_COVERAGE_SKIP_NONE": Setting(
+        package="spidermon",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.14.0")),
+    ),
+    "SPIDERMON_FIELD_COVERAGE_SKIP_FALSY": Setting(
+        package="spidermon",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("1.27.0")),
+    ),
+    "SPIDERMON_FIELD_COVERAGE_SKIP_VALUES": Setting(
+        package="spidermon",
+        type=SettingType.LIST,
+        default_value=VersionedValue(["", [], {}, "N/A", "-"]),
+        versioning=Versioning(added_in=Version("1.27.0")),
+    ),
+    "SPIDERMON_LIST_FIELDS_COVERAGE_LEVELS": Setting(
+        package="spidermon",
+        type=SettingType.INT,
+        default_value=VersionedValue(0),
+        versioning=Versioning(added_in=Version("1.19.0")),
+    ),
     "SPIDERMON_DICT_FIELDS_COVERAGE_LEVELS": Setting(package="spidermon"),
-    "SPIDERMON_MONITOR_SKIPPING_RULES": Setting(package="spidermon"),
+    "SPIDERMON_FIELD_COVERAGE_TOLERANCE": Setting(
+        package="spidermon",
+        type=SettingType.FLOAT,
+        default_value=VersionedValue(0.0),
+        versioning=Versioning(added_in=Version("1.26.0")),
+    ),
+    "SPIDERMON_MONITOR_SKIPPING_RULES": Setting(
+        package="spidermon",
+        type=SettingType.DICT,
+        versioning=Versioning(added_in=Version("1.20.0")),
+    ),
     # https://spidermon.readthedocs.io/en/latest/monitors.html
-    "SPIDERMON_MAX_CRITICALS": Setting(package="spidermon", type=SettingType.INT),
+    "SPIDERMON_MAX_CRITICALS": Setting(
+        package="spidermon",
+        type=SettingType.INT,
+        versioning=Versioning(added_in=Version("1.16.2")),
+    ),
     "SPIDERMON_MAX_DOWNLOADER_EXCEPTIONS": Setting(
         package="spidermon",
         type=SettingType.INT,
+        versioning=Versioning(added_in=Version("1.16.2")),
     ),
-    "SPIDERMON_MAX_ERRORS": Setting(package="spidermon", type=SettingType.INT),
+    "SPIDERMON_MAX_ERRORS": Setting(
+        package="spidermon",
+        type=SettingType.INT,
+        versioning=Versioning(added_in=Version("1.9.0")),
+    ),
     "SPIDERMON_FIELD_COVERAGE_SKIP_IF_NO_ITEM": Setting(
         package="spidermon",
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.18.0")),
     ),
     "SPIDERMON_EXPECTED_FINISH_REASONS": Setting(
         package="spidermon",
         type=SettingType.LIST,
         default_value=VersionedValue(["finished"]),
+        versioning=Versioning(added_in=Version("1.9.0")),
     ),
-    "SPIDERMON_MIN_ITEMS": Setting(package="spidermon", type=SettingType.INT),
+    "SPIDERMON_MIN_ITEMS": Setting(
+        package="spidermon",
+        type=SettingType.INT,
+        versioning=Versioning(added_in=Version("1.9.0")),
+    ),
     "SPIDERMON_MAX_ITEM_VALIDATION_ERRORS": Setting(
         package="spidermon",
         type=SettingType.INT,
+        versioning=Versioning(added_in=Version("1.13.0")),
     ),
-    "SPIDERMON_MAX_EXECUTION_TIME": Setting(package="spidermon", type=SettingType.INT),
-    "SPIDERMON_ITEM_COUNT_INCREASE": Setting(package="spidermon", type=SettingType.INT),
+    "SPIDERMON_MAX_EXECUTION_TIME": Setting(
+        package="spidermon",
+        type=SettingType.INT,
+        versioning=Versioning(added_in=Version("1.17.0")),
+    ),
+    "SPIDERMON_ITEM_COUNT_INCREASE": Setting(
+        package="spidermon",
+        type=SettingType.FLOAT,
+        versioning=Versioning(added_in=Version("1.19.0")),
+    ),
     "SPIDERMON_MAX_RETRIES": Setting(
         package="spidermon",
         type=SettingType.INT,
         default_value=VersionedValue(-1),
+        versioning=Versioning(added_in=Version("1.16.2")),
     ),
     "SPIDERMON_MIN_SUCCESSFUL_REQUESTS": Setting(
         package="spidermon",
         type=SettingType.INT,
         default_value=VersionedValue(0),
+        versioning=Versioning(added_in=Version("1.16.2")),
     ),
     "SPIDERMON_MAX_REQUESTS_ALLOWED": Setting(
         package="spidermon",
         type=SettingType.INT,
         default_value=VersionedValue(-1),
+        versioning=Versioning(added_in=Version("1.16.2")),
     ),
     "SPIDERMON_UNWANTED_HTTP_CODES_MAX_COUNT": Setting(
         package="spidermon",
         type=SettingType.INT,
         default_value=VersionedValue(10),
+        versioning=Versioning(added_in=Version("1.10.0")),
     ),
     "SPIDERMON_UNWANTED_HTTP_CODES": Setting(
         package="spidermon",
-        type=SettingType.LIST,
+        type=SettingType.DICT_OR_LIST,
         default_value=VersionedValue(
             [400, 407, 429, 500, 502, 503, 504, 523, 540, 541],
         ),
+        versioning=Versioning(added_in=Version("1.9.0")),
     ),
-    "SPIDERMON_MAX_WARNINGS": Setting(package="spidermon", type=SettingType.INT),
+    "SPIDERMON_MAX_WARNINGS": Setting(
+        package="spidermon",
+        type=SettingType.INT,
+        versioning=Versioning(added_in=Version("1.16.2")),
+    ),
     "SPIDERMON_JOBS_COMPARISON": Setting(
         package="spidermon",
         type=SettingType.INT,
         default_value=VersionedValue(0),
+        versioning=Versioning(added_in=Version("1.18.0")),
     ),
     "SPIDERMON_JOBS_COMPARISON_THRESHOLD": Setting(
         package="spidermon",
         type=SettingType.FLOAT,
+        versioning=Versioning(added_in=Version("1.18.0")),
     ),
     "SPIDERMON_JOBS_COMPARISON_STATES": Setting(
         package="spidermon",
         type=SettingType.LIST,
         default_value=VersionedValue(["finished"]),
+        versioning=Versioning(added_in=Version("1.18.0")),
     ),
     "SPIDERMON_JOBS_COMPARISON_TAGS": Setting(
         package="spidermon",
         type=SettingType.LIST,
         default_value=VersionedValue([]),
+        versioning=Versioning(added_in=Version("1.18.0")),
     ),
     "SPIDERMON_JOBS_COMPARISON_CLOSE_REASONS": Setting(
         package="spidermon",
         type=SettingType.LIST,
         default_value=VersionedValue([]),
+        versioning=Versioning(added_in=Version("1.23.0")),
     ),
     "SPIDERMON_JOBS_COMPARISON_ARGUMENTS": Setting(
         package="spidermon",
         type=SettingType.DICT,
         default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("1.24.0")),
     ),
     "SPIDERMON_JOBS_COMPARISON_ARGUMENTS_ENABLED": Setting(
         package="spidermon",
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.24.0")),
     ),
     # https://spidermon.readthedocs.io/en/latest/item-validation.html
     "SPIDERMON_VALIDATION_ADD_ERRORS_TO_ITEMS": Setting(
@@ -1575,62 +1687,77 @@ SETTINGS = {
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        versioning=Versioning(deprecated_in=Version("1.12.0")),
+        replacement="SPIDERMON_AWS_ACCESS_KEY_ID",
     ),
     "SPIDERMON_AWS_SECRET_KEY": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
         is_secret=True,
+        versioning=Versioning(deprecated_in=Version("1.12.0")),
+        replacement="SPIDERMON_AWS_SECRET_ACCESS_KEY",
     ),
     "SPIDERMON_AWS_ACCESS_KEY_ID": Setting(
         package="spidermon",
-        type=SettingType.STR,
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("1.12.0")),
     ),
     "SPIDERMON_AWS_SECRET_ACCESS_KEY": Setting(
         package="spidermon",
-        type=SettingType.STR,
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
         is_secret=True,
+        versioning=Versioning(added_in=Version("1.12.0")),
     ),
     "SPIDERMON_AWS_REGION_NAME": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
-        default_value=VersionedValue("None"),
+        default_value=VersionedValue("us-east-1"),
     ),
     "SPIDERMON_AWS_RETURN_PATH": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("1.18.0")),
     ),
     "SPIDERMON_SMTP_HOST": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     "SPIDERMON_SMTP_PORT": Setting(
         package="spidermon",
         type=SettingType.OPT_INT,
-        default_value=VersionedValue(None),
+        default_value=VersionedValue(25),
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     "SPIDERMON_SMTP_USER": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     "SPIDERMON_SMTP_PASSWORD": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
         is_secret=True,
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     "SPIDERMON_SMTP_ENFORCE_TLS": Setting(
         package="spidermon",
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     "SPIDERMON_SMTP_ENFORCE_SSL": Setting(
         package="spidermon",
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     # https://spidermon.readthedocs.io/en/latest/actions/slack-action.html
     "SPIDERMON_SLACK_RECIPIENTS": Setting(
@@ -1707,47 +1834,56 @@ SETTINGS = {
         package="spidermon",
         type=SettingType.LIST,
         default_value=VersionedValue([]),
+        versioning=Versioning(added_in=Version("1.12.0")),
     ),
     "SPIDERMON_TELEGRAM_SENDER_TOKEN": Setting(
         package="spidermon",
         type=SettingType.STR,
         is_secret=True,
+        versioning=Versioning(added_in=Version("1.12.0")),
     ),
     "SPIDERMON_TELEGRAM_FAKE": Setting(
         package="spidermon",
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.12.0")),
     ),
     "SPIDERMON_TELEGRAM_MESSAGE": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("1.12.0")),
     ),
     "SPIDERMON_TELEGRAM_MESSAGE_TEMPLATE": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("1.12.0")),
     ),
     # https://spidermon.readthedocs.io/en/latest/actions/discord-action.html
     "SPIDERMON_DISCORD_WEBHOOK_URL": Setting(
         package="spidermon",
         type=SettingType.STR,
         is_secret=True,
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     "SPIDERMON_DISCORD_FAKE": Setting(
         package="spidermon",
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     "SPIDERMON_DISCORD_MESSAGE": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     "SPIDERMON_DISCORD_MESSAGE_TEMPLATE": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
         default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("1.17.0")),
     ),
     # https://spidermon.readthedocs.io/en/latest/actions/job-tags-action.html
     "SPIDERMON_JOB_TAGS_TO_ADD": Setting(
@@ -1790,8 +1926,8 @@ SETTINGS = {
     ),
     "SPIDERMON_REPORT_S3_MAKE_PUBLIC": Setting(
         package="spidermon",
-        type=SettingType.OPT_STR,
-        default_value=VersionedValue(None),
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
     ),
     "SPIDERMON_REPORT_S3_REGION_ENDPOINT": Setting(
         package="spidermon",
@@ -1811,12 +1947,12 @@ SETTINGS = {
     "SPIDERMON_SENTRY_ENVIRONMENT_TYPE": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
-        default_value=VersionedValue(None),
+        default_value=VersionedValue("Development"),
     ),
     "SPIDERMON_SENTRY_LOG_LEVEL": Setting(
         package="spidermon",
         type=SettingType.OPT_STR,
-        default_value=VersionedValue(None),
+        default_value=VersionedValue("error"),
     ),
     "SPIDERMON_SENTRY_FAKE": Setting(
         package="spidermon",
@@ -1827,12 +1963,45 @@ SETTINGS = {
     "SPIDERMON_SNS_TOPIC_ARN": Setting(
         package="spidermon",
         type=SettingType.STR,
+        versioning=Versioning(added_in=Version("1.21.0")),
     ),
     # spidermon: undocumented settings
     "SPIDERMON_FIELD_COVERAGE_RULES": Setting(
         package="spidermon",
         type=SettingType.DICT,
         default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("1.14.0")),
+    ),
+    "SPIDERMON_TELEGRAM_NOTIFIER_INCLUDE_OK_MESSAGES": Setting(
+        package="spidermon",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.12.0")),
+    ),
+    "SPIDERMON_TELEGRAM_NOTIFIER_INCLUDE_ERROR_MESSAGES": Setting(
+        package="spidermon",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("1.12.0")),
+    ),
+    "SPIDERMON_DISCORD_NOTIFIER_INCLUDE_OK_MESSAGES": Setting(
+        package="spidermon",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("1.17.0")),
+    ),
+    "SPIDERMON_DISCORD_NOTIFIER_INCLUDE_ERROR_MESSAGES": Setting(
+        package="spidermon",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("1.17.0")),
+    ),
+    "SPIDERMON_VALIDATION_MODELS": Setting(
+        package="spidermon",
+        versioning=Versioning(
+            removed_in=Version("1.19.0"),
+            removal_guidance="use SPIDERMON_VALIDATION_SCHEMAS instead",
+        ),
     ),
     # scrapy-zyte-api plugin settings, in order of appearance in
     # https://scrapy-zyte-api.readthedocs.io/en/latest/reference/settings.html
