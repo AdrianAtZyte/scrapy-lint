@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+SPACES = (b" ", b"\t")
+
 
 def extract_literal_value(node) -> tuple[Any, bool]:
     """Extract a literal value from an AST node.
@@ -134,3 +136,11 @@ class ModuleIndex:
             return None
         path = self.imports.get(node.id)
         return path.split(".")[0] if path else None
+
+
+def skip_spaces(line: bytes, index: int) -> int:
+    """Return the index of the first non-space byte of *line* at or after
+    *index*."""
+    while line[index : index + 1] in SPACES:
+        index += 1
+    return index
