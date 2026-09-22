@@ -582,6 +582,76 @@ def test_fix_import(source: str, expected: str, fixed: int):
     )
 
 
+def spider_method(call: str) -> str:
+    """Return a spider whose parse() method consists of *call*."""
+    body = "".join(f"        {line}\n" for line in call.splitlines())
+    return f"class MySpider(Spider):\n    def parse(self, response):\n{body}"
+
+
+# (source, expected output, number of edits applied) for Spider.log() calls,
+# which become calls to the Spider.logger method of their level.
+LOG_CASES = (
+    ('self.log("a")', 'self.logger.debug("a")', 1),
+    ('self.log(f"{response.url}")', 'self.logger.debug(f"{response.url}")', 1),
+    ('self.log("a", level=logging.INFO)', 'self.logger.info("a")', 2),
+    ('self.log("a", logging.WARNING)', 'self.logger.warning("a")', 2),
+    ('self.log("a", level=WARN)', 'self.logger.warning("a")', 2),
+    ('self.log("a", level=40)', 'self.logger.error("a")', 2),
+    (
+        'self.log("a", level=logging.CRITICAL, extra={"b": 1})',
+        'self.logger.critical("a", extra={"b": 1})',
+        2,
+    ),
+    (
+        cleandoc(
+            """
+            self.log(
+                "a",
+                level=logging.INFO,
+            )
+            """,
+        ),
+        cleandoc(
+            """
+            self.logger.info(
+                "a",
+            )
+            """,
+        ),
+        2,
+    ),
+    # Levels that are not a standard one, and arguments that cannot be told
+    # apart, are left alone.
+    *(
+        (call, call, 0)
+        for call in (
+            'self.log("a", level=self.level)',
+            'self.log("a", level=25)',
+            "self.log(*args)",
+            'self.log("a", logging.INFO, extra)',
+            "self.log()",
+        )
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected", "fixed"),
+    LOG_CASES,
+    ids=range(len(LOG_CASES)),
+)
+def test_fix_spider_log(source: str, expected: str, fixed: int):
+    fix_project(
+        (
+            File("", path="scrapy.cfg"),
+            File(f"scrapy=={SCRAPY_HIGHEST_KNOWN}", path="requirements.txt"),
+            File(spider_method(source), path=PATH),
+        ),
+        File(spider_method(expected), path=PATH),
+        expected_fixed=fixed,
+    )
+
+
 def test_apply_edits_empty():
     source = "allowed_domains = []\n"
     assert apply_edits(source, []) == (source, 0)
