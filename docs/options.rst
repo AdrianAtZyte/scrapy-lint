@@ -46,12 +46,18 @@ per-file-ignores
 
 :ref:`rules` to ignore for specific files.
 
+Keys are `gitignore patterns`_, relative to the project root. When more than
+one pattern matches a file, all their rules are ignored for that file.
+
+.. _gitignore patterns: https://git-scm.com/docs/gitignore#_pattern_format
+
 For example:
 
 .. code-block:: toml
 
     [tool.scrapy-lint.per-file-ignores]
     "spiders/toscrape_com.py" = ["SCP46"]
+    "spiders/legacy/" = ["SCP08", "SCP09"]
 
 
 .. _requirements-file:
@@ -74,3 +80,7 @@ If not specified, a requirements file is looked up as follows:
 
 #.  The ``requirements.txt`` file in the project root directory, i.e. where
     ``scrapy.cfg`` lives.
+
+If no requirements file is found, dependencies are read from the ``project``
+section of :file:`pyproject.toml`, i.e. from ``dependencies`` and
+``optional-dependencies``.

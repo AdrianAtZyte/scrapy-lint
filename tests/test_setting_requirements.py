@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from packaging.version import Version
-
 from tests.helpers import check_project
 
-from . import NO_ISSUE, Cases, ExpectedIssue, File, cases, iter_issues
-from .settings import default_issues
+from . import (
+    NO_ISSUE,
+    Cases,
+    ExpectedIssue,
+    File,
+    cases,
+    insecure_scrapy_issues,
+    iter_issues,
+)
 from .test_settings import SETTING_VALUE_CHECK_TEMPLATES, SafeDict, zip_with_template
 
 CASES: Cases = (
@@ -22,6 +27,7 @@ CASES: Cases = (
                     "SCP13 incomplete requirements freeze",
                     path="requirements.txt",
                 ),
+                *insecure_scrapy_issues(requirements),
                 *iter_issues(issues),
             ),
             {},
@@ -35,11 +41,6 @@ CASES: Cases = (
                     "FEEDS",
                     value,
                     (
-                        ExpectedIssue(
-                            "SCP15 insecure requirement: scrapy 2.11.2 implements "
-                            "security fixes",
-                            path="requirements.txt",
-                        ),
                         *(
                             ExpectedIssue(
                                 f"SCP29 setting needs upgrade: {key!r} "
@@ -82,6 +83,35 @@ CASES: Cases = (
                 )
                 for version, has_issue in zip(versions, (True, False), strict=False)
             ),
+            # SCP29 setting needs upgrade, SCP36 invalid setting value:
+            # DOWNLOAD_SLOTS keys
+            *(
+                (f"scrapy=={version}", "DOWNLOAD_SLOTS", value, issues)
+                for version, value, issues in (
+                    (
+                        "2.18.0",
+                        '{f: {"jitter": 0}}',
+                        ExpectedIssue(
+                            "SCP29 setting needs upgrade: 'jitter' requires "
+                            "Scrapy 2.19.0+",
+                            column=34,
+                            path=path,
+                        ),
+                    ),
+                    ("2.19.0", '{f: {"jitter": 0}}', NO_ISSUE),
+                    ("2.18.0", '{f: {"randomize_delay": True}}', NO_ISSUE),
+                    (
+                        "2.19.0",
+                        '{f: {"randomize_delay": True}}',
+                        ExpectedIssue(
+                            "SCP36 invalid setting value: randomize_delay is "
+                            "deprecated in scrapy 2.19.0; use jitter instead",
+                            column=34,
+                            path=path,
+                        ),
+                    ),
+                )
+            ),
         )
     ),
     *(
@@ -96,10 +126,7 @@ CASES: Cases = (
                     "SCP13 incomplete requirements freeze",
                     path="requirements.txt",
                 ),
-                ExpectedIssue(
-                    "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                    path="requirements.txt",
-                ),
+                *insecure_scrapy_issues(requirements),
                 *iter_issues(issues),
             ),
             {},
@@ -131,10 +158,24 @@ CASES: Cases = (
                             (requirements, NO_ISSUE, settings, value, 0)
                             for requirements in ("scrapy==2.3.0", "scrapy==2.4.0")
                             for settings, value in (
+                                # Optional callable
+                                ("FEED_URI_PARAMS", "feed_uri_params"),
+                                # Special settings.
+                                (
+                                    "FEEDS",
+                                    '{foo: {"uri_params": None}}',
+                                ),
+                                (
+                                    "FEEDS",
+                                    '{foo: {"uri_params": uri_params}}',
+                                ),
+                            )
+                        ),
+                        *(
+                            ("scrapy==2.4.0", NO_ISSUE, settings, value, 0)
+                            for settings, value in (
                                 # Object
                                 ("DEFAULT_ITEM_CLASS", "MyItem"),
-                                # Optional object
-                                ("FEED_URI_PARAMS", "feed_uri_params"),
                                 # Based object dict
                                 (
                                     "FEED_EXPORTERS",
@@ -147,17 +188,41 @@ CASES: Cases = (
                                 # Based component priority dict
                                 (
                                     "DOWNLOADER_MIDDLEWARES",
-                                    '{Foo: 0, Bar: 1000, "scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware": None}',
+                                    '{Foo: 0, "scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware": None}',
                                 ),
-                                # Special settings.
-                                (
-                                    "FEEDS",
-                                    '{foo: {"uri_params": None}}',
-                                ),
-                                (
-                                    "FEEDS",
-                                    '{foo: {"uri_params": uri_params}}',
-                                ),
+                            )
+                        ),
+                        # SCP56 unsupported class object
+                        *(
+                            (
+                                "scrapy==2.3.0",
+                                "SCP56 unsupported class object: requires Scrapy 2.4.0+",
+                                settings,
+                                value,
+                                value_offset,
+                            )
+                            for settings, value, value_offset in (
+                                # Object
+                                ("DEFAULT_ITEM_CLASS", "MyItem", 0),
+                                ("DEFAULT_ITEM_CLASS", "items.MyItem", 0),
+                                # Based object dict
+                                ("FEED_EXPORTERS", '{"csv": MyCSVExporter}', 8),
+                                ("FEED_EXPORTERS", "dict(csv=MyCSVExporter)", 9),
+                                # Based component priority dict
+                                ("DOWNLOADER_MIDDLEWARES", "{MyMiddleware: 0}", 1),
+                            )
+                        ),
+                        # Names that do not follow the class naming convention
+                        # could be variables holding an import path.
+                        *(
+                            ("scrapy==2.3.0", NO_ISSUE, settings, value, 0)
+                            for settings, value in (
+                                ("DEFAULT_ITEM_CLASS", "MY_ITEM"),
+                                ("DEFAULT_ITEM_CLASS", "my_item"),
+                                ("DEFAULT_ITEM_CLASS", "items.MY_ITEM"),
+                                ("DEFAULT_ITEM_CLASS", "get_item_class()"),
+                                # Callables can be named like variables.
+                                ("FEED_URI_PARAMS", "FeedURIParams"),
                             )
                         ),
                         *(
@@ -341,436 +406,6 @@ CASES: Cases = (
                 )
             ),
         )
-    ),
-    # Checks based on requirements and code in a settings module
-    *(
-        (
-            (
-                File("[settings]\na=a", path="scrapy.cfg"),
-                File("\n".join(requirements), path="requirements.txt"),
-                File(code, path=path),
-            ),
-            (
-                *default_issues(path),
-                ExpectedIssue(
-                    "SCP13 incomplete requirements freeze",
-                    path="requirements.txt",
-                ),
-                *iter_issues(issues),
-            ),
-            {},
-        )
-        for path in ("a.py",)
-        for requirements, code, issues in (
-            # Baseline
-            (
-                (),
-                "",
-                NO_ISSUE,
-            ),
-            # SCP34 missing changing setting
-            (
-                ("scrapy==2.13.0",),
-                "",
-                NO_ISSUE,
-            ),
-            (
-                ("scrapy==2.13.0",),
-                "TWISTED_REACTOR = 'twisted.internet.asyncioreactor.AsyncioSelectorReactor'",
-                (
-                    ExpectedIssue(
-                        "SCP17 redundant setting value",
-                        column=18,
-                        path=path,
-                    ),
-                    ExpectedIssue(
-                        "SCP41 unneeded import path",
-                        column=18,
-                        path=path,
-                    ),
-                ),
-            ),
-            (
-                ("scrapy==2.12.0",),
-                "",
-                ExpectedIssue(
-                    "SCP34 missing changing setting: TWISTED_REACTOR changes "
-                    "from None to "
-                    "'twisted.internet.asyncioreactor.AsyncioSelectorReactor' "
-                    "in scrapy 2.13.0",
-                    path=path,
-                ),
-            ),
-            (
-                ("scrapy==2.12.0",),
-                "TWISTED_REACTOR = None",
-                NO_ISSUE,
-            ),
-            (
-                ("scrapy==2.12.0",),
-                'TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"',
-                ExpectedIssue(
-                    "SCP41 unneeded import path",
-                    column=18,
-                    path=path,
-                ),
-            ),
-            (
-                ("scrapy==2.12.0",),
-                'TWISTED_REACTOR = "custom.reactor"',
-                ExpectedIssue(
-                    "SCP41 unneeded import path",
-                    column=18,
-                    path=path,
-                ),
-            ),
-            (
-                ("scrapy==2.12.0",),
-                'ADDONS = {"scrapy_zyte_api.Addon": 500}',
-                ExpectedIssue(
-                    "SCP41 unneeded import path",
-                    column=10,
-                    path=path,
-                ),
-            ),
-            (
-                ("scrapy==2.12.0",),
-                'ADDONS = {"scrapy_zyte_api.addon.Addon": 500}',
-                ExpectedIssue(
-                    "SCP41 unneeded import path",
-                    column=10,
-                    path=path,
-                ),
-            ),
-            (
-                ("scrapy==2.12.0",),
-                "ADDONS = {ScrapyZyteApiAddon: 500}",
-                ExpectedIssue(
-                    "SCP34 missing changing setting: TWISTED_REACTOR changes "
-                    "from None to "
-                    "'twisted.internet.asyncioreactor.AsyncioSelectorReactor' "
-                    "in scrapy 2.13.0",
-                    path=path,
-                ),
-            ),
-            (
-                ("scrapy==2.12.0",),
-                "from scrapy_zyte_api import Addon\nADDONS = {Addon: 500}",
-                NO_ISSUE,
-            ),
-            (
-                ("scrapy==2.12.0",),
-                (
-                    "from scrapy_zyte_api import Addon as ScrapyZyteApiAddon\n"
-                    ""
-                    "ADDONS = {ScrapyZyteApiAddon: 500}"
-                ),
-                NO_ISSUE,
-            ),
-            (
-                ("scrapy==2.12.0",),
-                (
-                    "from scrapy_zyte_api.addon import Addon as ScrapyZyteApiAddon\n"
-                    ""
-                    "ADDONS = {ScrapyZyteApiAddon: 500}"
-                ),
-                NO_ISSUE,
-            ),
-            (
-                ("scrapy==2.12.0",),
-                "import scrapy_zyte_api\nADDONS = {scrapy_zyte_api.Addon: 500}",
-                NO_ISSUE,
-            ),
-            (
-                ("scrapy==2.12.0",),
-                (
-                    "import scrapy_zyte_api.addon\n"
-                    ""
-                    "ADDONS = {scrapy_zyte_api.addon.Addon: 500}"
-                ),
-                NO_ISSUE,
-            ),
-            (
-                ("scrapy==2.12.0",),
-                "import scrapy_zyte_api.addon as foo\nADDONS = {foo.Addon: 500}",
-                NO_ISSUE,
-            ),
-            (
-                ("scrapy==2.12.0", "scrapy_zyte_api==0.30.0"),
-                "import scrapy_zyte_api.addon as foo\nADDONS = {foo.Addon: 500}",
-                NO_ISSUE,
-            ),
-            # SCP41 unneeded import path (non-based component priority dict)
-            (
-                ("scrapy==2.10.0",),
-                "ADDONS = {ScrapyPoetAddon: 300}",
-                (
-                    ExpectedIssue(
-                        (
-                            "SCP15 insecure requirement: scrapy 2.11.2 "
-                            "implements security fixes"
-                        ),
-                        path="requirements.txt",
-                    ),
-                    ExpectedIssue(
-                        (
-                            "SCP34 missing changing setting: TWISTED_REACTOR "
-                            "changes from None to "
-                            "'twisted.internet.asyncioreactor.AsyncioSelectorReactor' "
-                            "in scrapy 2.13.0"
-                        ),
-                        path=path,
-                    ),
-                ),
-            ),
-            (
-                ("scrapy==2.10.0",),
-                'ADDONS = {"scrapy_poet.addons.Addon": 300}',
-                (
-                    ExpectedIssue(
-                        (
-                            "SCP15 insecure requirement: scrapy 2.11.2 "
-                            "implements security fixes"
-                        ),
-                        path="requirements.txt",
-                    ),
-                    ExpectedIssue(
-                        (
-                            "SCP34 missing changing setting: TWISTED_REACTOR "
-                            "changes from None to "
-                            "'twisted.internet.asyncioreactor.AsyncioSelectorReactor' "
-                            "in scrapy 2.13.0"
-                        ),
-                        path=path,
-                    ),
-                    ExpectedIssue(
-                        "SCP41 unneeded import path",
-                        column=10,
-                        path=path,
-                    ),
-                ),
-            ),
-            # SCP41 unneeded import path (base setting)
-            (
-                ("scrapy==2.4.0",),
-                'EXTENSIONS_BASE = {"custom.Extension": 42}',
-                (
-                    ExpectedIssue(
-                        (
-                            "SCP15 insecure requirement: scrapy 2.11.2 "
-                            "implements security fixes"
-                        ),
-                        path="requirements.txt",
-                    ),
-                    ExpectedIssue("SCP33 base setting use", path=path),
-                    ExpectedIssue(
-                        (
-                            "SCP34 missing changing setting: TWISTED_REACTOR "
-                            "changes from None to "
-                            "'twisted.internet.asyncioreactor.AsyncioSelectorReactor' "
-                            "in scrapy 2.13.0"
-                        ),
-                        path=path,
-                    ),
-                ),
-            ),
-            # SCP41 unneeded import path: added base key
-            (
-                ("scrapy==2.11.2",),
-                'SPIDER_CONTRACTS = {"scrapy.contracts.default.MetadataContract": None}',
-                (
-                    ExpectedIssue(
-                        (
-                            "SCP34 missing changing setting: TWISTED_REACTOR "
-                            "changes from None to "
-                            "'twisted.internet.asyncioreactor.AsyncioSelectorReactor' "
-                            "in scrapy 2.13.0"
-                        ),
-                        path=path,
-                    ),
-                    ExpectedIssue("SCP41 unneeded import path", column=20, path=path),
-                ),
-            ),
-            (
-                ("scrapy==2.12.0",),
-                'SPIDER_CONTRACTS = {"scrapy.contracts.default.MetadataContract": None}',
-                (
-                    ExpectedIssue(
-                        (
-                            "SCP34 missing changing setting: TWISTED_REACTOR "
-                            "changes from None to "
-                            "'twisted.internet.asyncioreactor.AsyncioSelectorReactor' "
-                            "in scrapy 2.13.0"
-                        ),
-                        path=path,
-                    ),
-                ),
-            ),
-            # SCP41 unneeded import path: removed base key
-            (
-                ("scrapy==2.11.1",),
-                'SPIDER_MIDDLEWARES = {"scrapy.spidermiddlewares.offsite.OffsiteMiddleware": 10}',
-                (
-                    ExpectedIssue(
-                        (
-                            "SCP15 insecure requirement: scrapy 2.11.2 "
-                            "implements security fixes"
-                        ),
-                        path="requirements.txt",
-                    ),
-                    ExpectedIssue(
-                        (
-                            "SCP34 missing changing setting: TWISTED_REACTOR "
-                            "changes from None to "
-                            "'twisted.internet.asyncioreactor.AsyncioSelectorReactor' "
-                            "in scrapy 2.13.0"
-                        ),
-                        path=path,
-                    ),
-                ),
-            ),
-            (
-                ("scrapy==2.11.2",),
-                'SPIDER_MIDDLEWARES = {"scrapy.spidermiddlewares.offsite.OffsiteMiddleware": 10}',
-                (
-                    ExpectedIssue(
-                        (
-                            "SCP34 missing changing setting: TWISTED_REACTOR "
-                            "changes from None to "
-                            "'twisted.internet.asyncioreactor.AsyncioSelectorReactor' "
-                            "in scrapy 2.13.0"
-                        ),
-                        path=path,
-                    ),
-                    ExpectedIssue("SCP41 unneeded import path", column=22, path=path),
-                ),
-            ),
-        )
-    ),
-    # SCP17 redundant setting value
-    *(
-        (
-            [
-                File("[settings]\na=a", path="scrapy.cfg"),
-                File(f"scrapy=={version}", path="requirements.txt"),
-                File(f"{name} = {value}", path=path),
-            ],
-            (
-                *default_issues(path),
-                ExpectedIssue(
-                    "SCP13 incomplete requirements freeze",
-                    path="requirements.txt",
-                ),
-                *(
-                    ExpectedIssue(message, path="requirements.txt")
-                    for message, min_version in (
-                        (
-                            "SCP14 unsupported requirement: scrapy-lint only supports scrapy 2.0.1+",
-                            "2.0.1",
-                        ),
-                        (
-                            "SCP15 insecure requirement: scrapy 2.11.2 implements security fixes",
-                            "2.11.2 ",
-                        ),
-                    )
-                    if Version(version) < Version(min_version)
-                ),
-                *(
-                    (
-                        ExpectedIssue(
-                            "SCP17 redundant setting value",
-                            column=len(name) + 3,
-                            path=path,
-                        ),
-                    )
-                    if should_trigger
-                    else ()
-                ),
-            ),
-            {},
-        )
-        for path in ["a.py"]
-        for version, name, value, should_trigger in (
-            # If a Scrapy version is known, SCP17 is still triggered or not as
-            # usual for settings for which we do not know a history of default
-            # value changes, but we do know their default value.
-            (
-                "2.13.0",
-                "TELNETCONSOLE_USERNAME",
-                '"scrapy"',
-                True,
-            ),
-            (
-                "2.13.0",
-                "TELNETCONSOLE_USERNAME",
-                '"username"',
-                False,
-            ),
-        )
-    ),
-    *(
-        (
-            [
-                File("[settings]\na=a", path="scrapy.cfg"),
-                File(requirements, path="requirements.txt"),
-                File('TELNETCONSOLE_USERNAME = "scrapy"', path=path),
-            ],
-            (
-                *default_issues(path),
-                *(
-                    ExpectedIssue(
-                        "SCP13 incomplete requirements freeze",
-                        path="requirements.txt",
-                    )
-                    for _ in range(1)
-                    if not isinstance(requirements, bytes)
-                ),
-                ExpectedIssue(
-                    "SCP17 redundant setting value",
-                    column=len("TELNETCONSOLE_USERNAME") + 3,
-                    path=path,
-                ),
-            ),
-            {},
-        )
-        for path in ["a.py"]
-        for requirements in (
-            # Invalid or non-frozen requirements do not prevent SCP17 for
-            # settings for which SCP17 reporting does not depend on the version
-            # of Scrapy.
-            "",
-            "# scrapy==2.13.0",
-            "scrapy>=2.13.0",
-            "scrapy>=2.13.0,<2.14.0",
-            "scrapy!",
-            "scrapy!=2.13.0  # foo",
-            b"\xff\xfe\x00\x00",
-        )
-    ),
-    # SCP27 unknown setting: recommend known-settings even when
-    # dependency versions need to be taken into account (assume they are met)
-    (
-        (
-            File("", path="scrapy.cfg"),
-            File("scrapy", path="requirements.txt"),
-            File("settings['SETING']", path="a.py"),
-        ),
-        (
-            ExpectedIssue(
-                message="SCP13 incomplete requirements freeze",
-                line=1,
-                column=0,
-                path="requirements.txt",
-            ),
-            ExpectedIssue(
-                "SCP27 unknown setting: did you mean: SETTING?",
-                column=9,
-                path="a.py",
-            ),
-        ),
-        {
-            "known-settings": ["SETTING"],
-        },
     ),
 )
 

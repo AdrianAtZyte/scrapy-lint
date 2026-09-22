@@ -99,11 +99,12 @@ class SettingType(Enum):
     OPT_STR = "opt_str"
     PERIODIC_LOG_CONFIG = "periodic_log_config"
     STR = "str"
-    # OBJ stands for a Python object (e.g. class, function, module) or its
-    # import path.
+    # OBJ stands for a class or its import path.
     OBJ = "obj"
     OPT_OBJ = "opt_obj"  # Can be None
-    BASED_OBJ_DICT = "based_obj_dict"  # Values are objects, import paths or None
+    BASED_OBJ_DICT = "based_obj_dict"  # Values are classes, import paths or None
+    # Any callable, i.e. also functions, or its import path. Can be None.
+    OPT_CALLABLE = "opt_callable"
 
 
 # Missing types use the `get` method.
@@ -177,6 +178,9 @@ class Setting:
 
     package: str = "scrapy"
     versioning: Versioning = field(default_factory=Versioning)
+    replacement: str | None = None
+    """Setting that supersedes this one, taking the same value."""
+    discouraged_in: Version | UnknownUnsupportedVersion | None = None
 
     @property
     def base(self) -> Setting:
