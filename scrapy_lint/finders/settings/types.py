@@ -6,6 +6,7 @@ from ast import Call, Constant, Dict, Lambda, List, Set, Tuple, expr
 from collections.abc import Generator, Iterable
 from functools import partial
 from typing import TYPE_CHECKING, Protocol
+from urllib.parse import urlsplit
 
 from packaging.version import Version
 
@@ -59,6 +60,19 @@ def check_import_path_need(
 
 def has_feed_uri_params(value: str) -> bool:
     return bool(re.search(r"%\([^)]+\)[sdifouxXeEgGcr]", value))
+
+
+def has_valid_authority(uri: str) -> bool:
+    try:
+        parts = urlsplit(uri)
+        if not has_feed_uri_params(parts.netloc):
+            # A character that credentials must percent-encode, such as a
+            # slash, cuts the authority short, leaving part of the credentials
+            # where the port belongs. urlsplit only parses the port on access.
+            _ = parts.port
+    except ValueError:
+        return False
+    return True
 
 
 def is_import_path(value: str, **_) -> bool:
@@ -290,6 +304,16 @@ def is_opt_int(node: expr, **kwargs) -> bool:
     return is_getint_compatible(node, **kwargs)
 
 
+def is_allowed_none(node: expr, setting: Setting, project: Project) -> bool:
+    if not isinstance(node, Constant) or node.value is not None:
+        return False
+    nullable_since = setting.versioning.nullable_since
+    if nullable_since is None:
+        return False
+    version = project.frozen_requirements.get(setting.package)
+    return version is None or version >= nullable_since
+
+
 class IsTypeFunction(Protocol):  # pylint: disable=too-few-public-methods
     def __call__(self, node: expr, *, setting: Setting) -> bool: ...
 
@@ -443,6 +467,7 @@ PATH_SUPPORT_VERSIONS: dict[str, Version | UnknownUnsupportedVersion] = {
     "IMAGES_STORE": Version("2.9.0"),
     "JOBDIR": Version("2.8.0"),
     "LOG_FILE": UNKNOWN_UNSUPPORTED_VERSION,
+    "REMOTE_CONTROL_JOBS_DIR": Version("2.19.0"),
     "TEMPLATES_DIR": Version("2.8.0"),
 }
 

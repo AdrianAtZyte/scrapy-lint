@@ -1,57 +1,45 @@
 .. _scp44:
 
-=============================
-SCP44: Improper setting value
-=============================
+=======================
+SCP44: Session rotation
+=======================
 
 What it does
 ============
 
-Reports setting values that Scrapy accepts but that are a poor way to express
-the intended value:
-
--   A dict assigned to a setting that is read as a list.
-
--   A value other than ``True`` or ``False`` assigned to a boolean setting.
-
--   An integer assigned to :setting:`LOG_LEVEL`.
-
--   A JSON string assigned to a setting that is read as a dict or a list.
+Reports a setting module (e.g. ``settings.py``) that enables
+:ref:`scrapy-zyte-api sessions <session>` with a :ref:`session pool
+<pool-size>` larger than 1, be it through
+:setting:`ZYTE_API_SESSION_POOL_SIZE`, which defaults to 8, or through the
+``size`` key of :setting:`ZYTE_API_SESSION_POOLS`.
 
 
 Why is this bad?
 ================
 
-Such values are harder to read, and often a symptom of a mistake.
+Every session in a pool is a separate identity from the point of view of the
+target website. A pool of 8 sessions makes a single crawl look like 8 different
+visitors, each of which sends requests 8 times less often than you actually do.
 
-A dict assigned to a list setting is read as the list of its keys, which is
-rarely what is intended.
+Website owners should be able to tell that your requests are all yours, so that
+they can throttle you or block you if they want to.
 
-A JSON string is not checked by this tool beyond being valid JSON, so mistakes
-in its contents go unreported.
+A larger pool is the feature working as intended: pools exist to extend the
+lifetime of sessions on websites that push back. This rule asks you to give
+that up in exchange for being attributable; :ref:`silence it <ignore>` if that
+is not a trade-off you want to make.
 
 
 Example
 =======
 
 .. code-block:: python
-    :caption: :file:`settings.py`
 
-    ADDONS = '{"myproject.addons.Addon": 100}'
-    LOG_LEVEL = 10
-    ROBOTSTXT_OBEY = "1"
-    SPIDER_MODULES = {"myproject.spiders": None}
+    ZYTE_API_SESSION_ENABLED = True
 
 Instead use:
 
 .. code-block:: python
-    :caption: :file:`settings.py`
 
-    import logging
-
-    import myproject.addons
-
-    ADDONS = {myproject.addons.Addon: 100}
-    LOG_LEVEL = logging.DEBUG
-    ROBOTSTXT_OBEY = True
-    SPIDER_MODULES = ["myproject.spiders"]
+    ZYTE_API_SESSION_ENABLED = True
+    ZYTE_API_SESSION_POOL_SIZE = 1

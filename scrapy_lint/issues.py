@@ -45,9 +45,17 @@ class Issue:
         self.fix = fix
 
     @property
-    def message(self) -> str:
+    def rule(self) -> str:
+        return f"SCP{self.code:02}"
+
+    @property
+    def description(self) -> str:
         detail = f": {self.detail}" if self.detail else ""
-        return f"SCP{self.code:02} {self.summary}{detail}"
+        return f"{self.summary}{detail}"
+
+    @property
+    def message(self) -> str:
+        return f"{self.rule} {self.description}"
 
     @property
     def line(self) -> int:
@@ -57,8 +65,12 @@ class Issue:
     def column(self) -> int:
         return self.pos.column
 
+    @property
+    def location(self) -> str:
+        return f"{self.file}:{self.line}:{self.column}"
+
     def __str__(self):
-        return f"{self.file}:{self.line}:{self.column}: {self.message}"
+        return f"{self.location}: {self.message}"
 
 
 DISALLOWED_DOMAIN = (1, "disallowed domain")
@@ -104,7 +116,7 @@ UNNEEDED_SETTING_GET = (40, "unneeded setting get")
 UNNEEDED_IMPORT_PATH = (41, "unneeded import path")
 UNNEEDED_PATH_STRING = (42, "unneeded path string")
 UNSUPPORTED_PATH_OBJECT = (43, "unsupported Path object")
-IMPROPER_SETTING_VALUE = (44, "improper setting value")
+SESSION_ROTATION = (44, "session rotation")
 UNSAFE_META_COPY = (45, "unsafe meta copy")
 ZYTE_RAW_PARAMS = (46, "raw Zyte API params")
 UNIMPORTABLE_COMPONENT = (47, "unimportable component")
@@ -116,3 +128,13 @@ HARDCODED_SECRET = (53, "hardcoded secret")
 UNNEEDED_START = (54, "unneeded start method")
 DOCUMENTATION_COMMENT = (58, "documentation comment")
 LOWERCASE_SETTING = (59, "lowercase setting")
+EOL_PYTHON = (63, "end-of-life Python")
+STACK_PYTHON_MISMATCH = (64, "stack Python mismatch")
+UNFROZEN_PYTHON = (65, "Python not frozen")
+START_URL = (67, "start_url instead of start_urls")
+DEPRECATED_API = (74, "deprecated API")
+REMOVED_API = (75, "removed API")
+INCOMPATIBLE_REQUIREMENT = (76, "incompatible requirement")
+DISCOURAGED_API = (77, "discouraged API")
+WRONG_ADDON_ORDER = (80, "wrong add-on order")
+IMPROPER_SETTING_VALUE = (81, "improper setting value")
