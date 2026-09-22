@@ -14,13 +14,7 @@ that scrapy-lint supports with a frozen [#f1]_ version that scrapy-lint does
 scrapy-lint supports many packages in the Scrapy ecosystem, but expects the
 following minimum versions of them to be used in your project:
 
-======= ===============
-Package Minimum version
-======= ===============
-Scrapy_ 2.0.1
-======= ===============
-
-.. _Scrapy: https://scrapy.org/
+.. include:: ../_package_versions.rst
 
 .. [#f1] This rule only fires for frozen versions (using ``==``). Non-frozen
     version specifications like ``scrapy>=2.0.0`` or ``scrapy~=2.0`` are
