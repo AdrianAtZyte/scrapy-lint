@@ -2020,18 +2020,235 @@ SETTINGS = {
         type=SettingType.BOOL,
         default_value=VersionedValue(False),
     ),
-    "ZYTE_SMARTPROXY_APIKEY": Setting(package="scrapy-zyte-smartproxy", is_secret=True),
-    "ZYTE_SMARTPROXY_URL": Setting(package="scrapy-zyte-smartproxy"),
-    "ZYTE_SMARTPROXY_MAXBANS": Setting(package="scrapy-zyte-smartproxy"),
-    "ZYTE_SMARTPROXY_DOWNLOAD_TIMEOUT": Setting(package="scrapy-zyte-smartproxy"),
-    "ZYTE_SMARTPROXY_PRESERVE_DELAY": Setting(package="scrapy-zyte-smartproxy"),
-    "ZYTE_SMARTPROXY_DEFAULT_HEADERS": Setting(package="scrapy-zyte-smartproxy"),
-    "ZYTE_SMARTPROXY_BACKOFF_STEP": Setting(package="scrapy-zyte-smartproxy"),
-    "ZYTE_SMARTPROXY_BACKOFF_MAX": Setting(package="scrapy-zyte-smartproxy"),
+    "ZYTE_SMARTPROXY_APIKEY": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        is_secret=True,
+    ),
+    "ZYTE_SMARTPROXY_URL": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.STR,
+        default_value=VersionedValue("http://proxy.zyte.com:8011"),
+    ),
+    "ZYTE_SMARTPROXY_MAXBANS": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(400),
+    ),
+    "ZYTE_SMARTPROXY_DOWNLOAD_TIMEOUT": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(190),
+    ),
+    "ZYTE_SMARTPROXY_PRESERVE_DELAY": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+    ),
+    "ZYTE_SMARTPROXY_DEFAULT_HEADERS": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+    ),
+    "ZYTE_SMARTPROXY_BACKOFF_STEP": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(15),
+    ),
+    "ZYTE_SMARTPROXY_BACKOFF_MAX": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(180),
+    ),
     "ZYTE_SMARTPROXY_FORCE_ENABLE_ON_HTTP_CODES": Setting(
         package="scrapy-zyte-smartproxy",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
     ),
-    "ZYTE_SMARTPROXY_KEEP_HEADERS": Setting(package="scrapy-zyte-smartproxy"),
+    "ZYTE_SMARTPROXY_KEEP_HEADERS": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("2.4.0")),
+    ),
+    # scrapy-zyte-smartproxy plugin settings deprecated in favor of the
+    # ZYTE_SMARTPROXY_* ones above, still read with a ScrapyDeprecationWarning.
+    "HUBPROXY_ENABLED": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(deprecated_in=UNKNOWN_UNSUPPORTED_VERSION),
+        replacement="ZYTE_SMARTPROXY_ENABLED",
+    ),
+    "HUBPROXY_APIKEY": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        is_secret=True,
+        versioning=Versioning(deprecated_in=UNKNOWN_UNSUPPORTED_VERSION),
+        replacement="ZYTE_SMARTPROXY_APIKEY",
+    ),
+    "HUBPROXY_URL": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.STR,
+        default_value=VersionedValue("http://proxy.zyte.com:8011"),
+        versioning=Versioning(deprecated_in=UNKNOWN_UNSUPPORTED_VERSION),
+        replacement="ZYTE_SMARTPROXY_URL",
+    ),
+    "HUBPROXY_MAXBANS": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(400),
+        versioning=Versioning(deprecated_in=UNKNOWN_UNSUPPORTED_VERSION),
+        replacement="ZYTE_SMARTPROXY_MAXBANS",
+    ),
+    "HUBPROXY_DOWNLOAD_TIMEOUT": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(190),
+        versioning=Versioning(deprecated_in=UNKNOWN_UNSUPPORTED_VERSION),
+        replacement="ZYTE_SMARTPROXY_DOWNLOAD_TIMEOUT",
+    ),
+    "HUBPROXY_PRESERVE_DELAY": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(deprecated_in=UNKNOWN_UNSUPPORTED_VERSION),
+        replacement="ZYTE_SMARTPROXY_PRESERVE_DELAY",
+    ),
+    "HUBPROXY_BACKOFF_STEP": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(15),
+        versioning=Versioning(deprecated_in=UNKNOWN_UNSUPPORTED_VERSION),
+        replacement="ZYTE_SMARTPROXY_BACKOFF_STEP",
+    ),
+    "HUBPROXY_BACKOFF_MAX": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(180),
+        versioning=Versioning(deprecated_in=UNKNOWN_UNSUPPORTED_VERSION),
+        replacement="ZYTE_SMARTPROXY_BACKOFF_MAX",
+    ),
+    "HUBPROXY_FORCE_ENABLE_ON_HTTP_CODES": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(deprecated_in=UNKNOWN_UNSUPPORTED_VERSION),
+        replacement="ZYTE_SMARTPROXY_FORCE_ENABLE_ON_HTTP_CODES",
+    ),
+    # scrapy-crawlera settings, from before the package was renamed
+    # scrapy-zyte-smartproxy, no longer read at all as of that rename.
+    "CRAWLERA_ENABLED": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_ENABLED instead",
+        ),
+    ),
+    "CRAWLERA_APIKEY": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        is_secret=True,
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_APIKEY instead",
+        ),
+    ),
+    "CRAWLERA_URL": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.STR,
+        default_value=VersionedValue("http://proxy.zyte.com:8011"),
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_URL instead",
+        ),
+    ),
+    "CRAWLERA_MAXBANS": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(400),
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_MAXBANS instead",
+        ),
+    ),
+    "CRAWLERA_DOWNLOAD_TIMEOUT": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(190),
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_DOWNLOAD_TIMEOUT instead",
+        ),
+    ),
+    "CRAWLERA_PRESERVE_DELAY": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_PRESERVE_DELAY instead",
+        ),
+    ),
+    "CRAWLERA_DEFAULT_HEADERS": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_DEFAULT_HEADERS instead",
+        ),
+    ),
+    "CRAWLERA_BACKOFF_STEP": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(15),
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_BACKOFF_STEP instead",
+        ),
+    ),
+    "CRAWLERA_BACKOFF_MAX": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.INT,
+        default_value=VersionedValue(180),
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_BACKOFF_MAX instead",
+        ),
+    ),
+    "CRAWLERA_FORCE_ENABLE_ON_HTTP_CODES": Setting(
+        package="scrapy-zyte-smartproxy",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(
+            removed_in=Version("2.0.0"),
+            removal_guidance="use ZYTE_SMARTPROXY_FORCE_ENABLE_ON_HTTP_CODES instead",
+        ),
+    ),
+    # Removed even earlier, from the still-named-scrapy-crawlera package,
+    # collapsed into a single API key instead of a username and a password.
+    "CRAWLERA_USER": Setting(
+        package="scrapy-zyte-smartproxy",
+        is_secret=True,
+        versioning=Versioning(
+            removed_in=Version("1.5.1"),
+            removal_guidance="use ZYTE_SMARTPROXY_APIKEY instead",
+        ),
+    ),
+    "CRAWLERA_PASS": Setting(
+        package="scrapy-zyte-smartproxy",
+        is_secret=True,
+        versioning=Versioning(
+            removed_in=Version("1.5.1"),
+            removal_guidance="use ZYTE_SMARTPROXY_APIKEY instead",
+        ),
+    ),
 }
 
 for name, setting in SETTINGS.items():
