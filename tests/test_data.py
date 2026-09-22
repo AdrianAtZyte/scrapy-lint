@@ -4,6 +4,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 from scrapy_lint.data.apis import API_METHODS, API_PARAMETERS
+from scrapy_lint.data.imports import IMPORTS
 from scrapy_lint.data.packages import PACKAGES, VERSION_CONFLICTS
 from scrapy_lint.data.settings import SETTINGS
 from scrapy_lint.finders.settings.types import PATH_SUPPORT_VERSIONS
@@ -76,19 +77,39 @@ def test_path_support():
             assert name in PATH_SUPPORT_VERSIONS
 
 
+def test_import_replacements():
+    for imported_object in IMPORTS.values():
+        if imported_object.replacement:
+            # The replacement is the guidance, so a second one would repeat it.
+            assert not imported_object.versioning.sunset_guidance
+
+
 def test_sunset_guidance():
     for data in SETTINGS.values():
         if not data.versioning.deprecated_in:
             assert not data.versioning.sunset_guidance
+            assert not data.replacement
+
+
+def test_replacement():
+    for name, data in SETTINGS.items():
+        if not data.replacement:
+            continue
+        assert data.replacement in SETTINGS, (
+            f"Setting {name} is replaced by unknown setting {data.replacement}"
+        )
+        # The replacement is the sunset guidance, so having both would mean
+        # reporting the same thing twice.
+        assert not data.versioning.sunset_guidance
 
 
 def test_versions():
     for data in SETTINGS.values():
         if data.versioning.removed_in:
-            # Any setting with a removed_in version is expected to have a
-            # lower deprecated_in version as well. If that ever changes, we
-            # need to review any existing code that relies on this assumption.
-            assert data.versioning.deprecated_in
+            # A deprecated_in version is optional, for settings removed
+            # without a prior deprecation, but it must be lower.
+            if not data.versioning.deprecated_in:
+                continue
             if isinstance(data.versioning.deprecated_in, UnknownUnsupportedVersion):
                 assert data.versioning.deprecated_in is UNKNOWN_UNSUPPORTED_VERSION
                 assert PACKAGES[data.package].lowest_supported_version
