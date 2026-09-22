@@ -24,6 +24,7 @@ from .finders.domains import (
 )
 from .finders.imports import ImportIssueFinder
 from .finders.items import DocumentationCommentIssueFinder
+from .finders.loggers import SpiderLoggerIssueFinder
 from .finders.methods import DeprecatedArgumentIssueFinder
 from .finders.oldstyle import (
     OldSelectorIssueFinder,
@@ -67,6 +68,7 @@ class PythonIssueFinder(NodeVisitor):
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
+        spider_logger_issue_finder = SpiderLoggerIssueFinder()
         import_issue_finder = ImportIssueFinder(setting_checker.project)
 
         self.finders: dict[str, Sequence[IssueFinder]] = {
@@ -76,6 +78,7 @@ class PythonIssueFinder(NodeVisitor):
                 setting_issue_finder,
                 domain_issue_finder,
                 UrlInAllowedDomainsIssueFinder(source),
+                spider_logger_issue_finder,
             ],
             "AugAssign": [
                 setting_issue_finder,
@@ -93,6 +96,7 @@ class PythonIssueFinder(NodeVisitor):
                 domain_issue_finder,
                 find_no_allowed_domains_issues,
                 StartUrlIssueFinder(source),
+                spider_logger_issue_finder,
                 UnneededStartIssueFinder(source),
                 SpiderAttributeIssueFinder(context),
                 DeprecatedArgumentIssueFinder(context),
