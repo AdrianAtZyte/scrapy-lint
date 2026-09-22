@@ -1305,18 +1305,106 @@ SETTINGS = {
     ),
     # scrapy-playwright plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-playwright#supported-settings
-    "PLAYWRIGHT_BROWSER_TYPE": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_LAUNCH_OPTIONS": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_CDP_URL": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_CONNECT_URL": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_CONNECT_KWARGS": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_CONTEXTS": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_MAX_CONTEXTS": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_PROCESS_REQUEST_HEADERS": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_RESTART_DISCONNECTED_BROWSER": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_MAX_PAGES_PER_CONTEXT": Setting(package="scrapy-playwright"),
-    "PLAYWRIGHT_ABORT_REQUEST": Setting(package="scrapy-playwright"),
+    "PLAYWRIGHT_BROWSER_TYPE": Setting(
+        package="scrapy-playwright",
+        type=SettingType.STR,
+        default_value=VersionedValue("chromium"),
+    ),
+    "PLAYWRIGHT_LAUNCH_OPTIONS": Setting(
+        package="scrapy-playwright",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+    ),
+    "PLAYWRIGHT_BROWSER_PROVIDER": Setting(
+        package="scrapy-playwright",
+        type=SettingType.OBJ,
+        default_value=VersionedValue(
+            "scrapy_playwright.provider.PlaywrightBrowserProvider",
+        ),
+        versioning=Versioning(added_in=Version("0.0.48")),
+    ),
+    "PLAYWRIGHT_CDP_URL": Setting(
+        package="scrapy-playwright",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.0.32")),
+    ),
+    "PLAYWRIGHT_CDP_KWARGS": Setting(
+        package="scrapy-playwright",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.0.32")),
+    ),
+    "PLAYWRIGHT_CONNECT_URL": Setting(
+        package="scrapy-playwright",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.0.38")),
+    ),
+    "PLAYWRIGHT_CONNECT_KWARGS": Setting(
+        package="scrapy-playwright",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.0.38")),
+    ),
+    "PLAYWRIGHT_CONTEXTS": Setting(
+        package="scrapy-playwright",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.0.4")),
+    ),
+    "PLAYWRIGHT_MAX_CONTEXTS": Setting(
+        package="scrapy-playwright",
+        type=SettingType.OPT_INT,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.0.17")),
+    ),
+    "PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT": Setting(
+        package="scrapy-playwright",
+        type=SettingType.FLOAT,
+        default_value=VersionedValue(None),
+    ),
+    "PLAYWRIGHT_DOWNLOAD_TIMEOUT": Setting(
+        package="scrapy-playwright",
+        type=SettingType.INT,
+        default_value=VersionedValue(30000),
+        versioning=Versioning(added_in=Version("0.0.47")),
+    ),
+    "PLAYWRIGHT_PROCESS_REQUEST_HEADERS": Setting(
+        package="scrapy-playwright",
+        type=SettingType.OPT_OBJ,
+        default_value=VersionedValue("scrapy_playwright.headers.use_scrapy_headers"),
+    ),
+    "PLAYWRIGHT_RESTART_DISCONNECTED_BROWSER": Setting(
+        package="scrapy-playwright",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("0.0.39")),
+    ),
+    "PLAYWRIGHT_MAX_PAGES_PER_CONTEXT": Setting(
+        package="scrapy-playwright",
+        type=SettingType.INT,
+        # Defaults to the value of CONCURRENT_REQUESTS.
+        default_value=UNKNOWN_SETTING_VALUE,
+        versioning=Versioning(added_in=Version("0.0.11")),
+    ),
+    "PLAYWRIGHT_ABORT_REQUEST": Setting(
+        package="scrapy-playwright",
+        type=SettingType.OPT_OBJ,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.0.13")),
+    ),
+    "PLAYWRIGHT_CONTEXT_ARGS": Setting(
+        package="scrapy-playwright",
+        type=SettingType.DICT,
+        versioning=Versioning(
+            deprecated_in=Version("0.0.4"),
+            removed_in=Version("0.0.15"),
+            sunset_guidance=(
+                'use PLAYWRIGHT_CONTEXTS instead, as the "default" context'
+            ),
+        ),
+    ),
     # scrapy-poet plugin settings, in order of appearance in
     # https://scrapy-poet.readthedocs.io/en/stable/settings.html
     "SCRAPY_POET_CACHE": Setting(package="scrapy-poet"),
