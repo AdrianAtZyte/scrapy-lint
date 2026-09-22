@@ -1407,21 +1407,76 @@ SETTINGS = {
     ),
     # scrapy-poet plugin settings, in order of appearance in
     # https://scrapy-poet.readthedocs.io/en/stable/settings.html
-    "SCRAPY_POET_CACHE": Setting(package="scrapy-poet"),
-    "SCRAPY_POET_CACHE_ERRORS": Setting(package="scrapy-poet"),
-    "SCRAPY_POET_DISCOVER": Setting(package="scrapy-poet"),
+    "SCRAPY_POET_CACHE": Setting(
+        package="scrapy-poet",
+        versioning=Versioning(added_in=Version("0.3.0")),
+    ),
+    "SCRAPY_POET_CACHE_ERRORS": Setting(
+        package="scrapy-poet",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.3.0")),
+    ),
+    "SCRAPY_POET_DISCOVER": Setting(
+        package="scrapy-poet",
+        type=SettingType.LIST,
+        default_value=VersionedValue([]),
+        versioning=Versioning(added_in=Version("0.9.0")),
+    ),
     "SCRAPY_POET_OVERRIDES": Setting(
         package="scrapy-poet",
         versioning=Versioning(
             deprecated_in=Version("0.9.0"),
+            removed_in=Version("0.27.0"),
             sunset_guidance="use SCRAPY_POET_DISCOVER and/or SCRAPY_POET_RULES instead",
         ),
     ),
-    "SCRAPY_POET_PROVIDERS": Setting(package="scrapy-poet"),
-    "SCRAPY_POET_REQUEST_FINGERPRINTER_BASE_CLASS": Setting(package="scrapy-poet"),
-    "SCRAPY_POET_RULES": Setting(package="scrapy-poet"),
-    "SCRAPY_POET_TESTS_ADAPTER": Setting(package="scrapy-poet"),
-    "SCRAPY_POET_TESTS_DIR": Setting(package="scrapy-poet"),
+    "SCRAPY_POET_PROVIDERS": Setting(
+        package="scrapy-poet",
+        type=SettingType.COMP_PRIO_DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.1.0")),
+    ),
+    "SCRAPY_POET_REQUEST_FINGERPRINTER_BASE_CLASS": Setting(
+        package="scrapy-poet",
+        type=SettingType.OBJ,
+        versioning=Versioning(added_in=Version("0.20.0")),
+    ),
+    "SCRAPY_POET_RULES": Setting(
+        package="scrapy-poet",
+        type=SettingType.LIST,
+        versioning=Versioning(added_in=Version("0.9.0")),
+    ),
+    "SCRAPY_POET_TESTS_ADAPTER": Setting(
+        package="scrapy-poet",
+        type=SettingType.OPT_OBJ,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.13.0")),
+    ),
+    "SCRAPY_POET_TESTS_DIR": Setting(
+        package="scrapy-poet",
+        type=SettingType.STR,
+        default_value=VersionedValue("fixtures"),
+        versioning=Versioning(added_in=Version("0.8.0")),
+    ),
+    "_SCRAPY_POET_SAVEFIXTURE": Setting(
+        package="scrapy-poet",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.11.0")),
+    ),
+    # Removed scrapy-poet settings.
+    "SCRAPY_POET_OVERRIDES_REGISTRY": Setting(
+        package="scrapy-poet",
+        versioning=Versioning(
+            removed_in=Version("0.9.0"),
+            removal_guidance="scrapy-poet uses web_poet.rules.RulesRegistry",
+        ),
+    ),
+    "SCRAPY_POET_CACHE_GZIP": Setting(
+        package="scrapy-poet",
+        versioning=Versioning(removed_in=Version("0.14.0")),
+    ),
     # scrapy-redis plugin settings, in order of appearance in
     # https://github.com/rmax/scrapy-redis/wiki/Usage
     "SCHEDULER_SERIALIZER": Setting(package="scrapy-redis"),
