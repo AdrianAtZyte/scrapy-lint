@@ -487,7 +487,7 @@ CASES: Cases = (
             ),
             # SCP32 wrong setting method: setting with unknown type
             (
-                "settings.getdict('REDIS_HOST')",
+                "settings.getdict('REDIS_DB')",
                 NO_ISSUE,
             ),
             # SCP32 wrong setting method: ast.Attribute in load context

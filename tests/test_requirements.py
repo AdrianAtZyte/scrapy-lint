@@ -25,6 +25,14 @@ for _conflict in VERSION_CONFLICTS:
         continue
     CONFLICTS_BY_DEPENDENCY.setdefault(_conflict.dependency, []).append(_conflict)
 
+
+def lowest_supported(dependency: str) -> Version:
+    package = PACKAGES.get(dependency)
+    if package is None or package.lowest_supported_version is None:
+        return Version("0")
+    return package.lowest_supported_version
+
+
 ALL_DEPS = "\n".join(
     [
         "aiohttp==3.8.4",
@@ -449,7 +457,7 @@ CASES: Cases = (
                 )
                 for dependency, conflicts in CONFLICTS_BY_DEPENDENCY.items()
                 for dependency_version, broken in (
-                    (Version("0"), True),
+                    (lowest_supported(dependency), True),
                     (max(c.lowest_compatible for c in conflicts), False),
                 )
             ),
