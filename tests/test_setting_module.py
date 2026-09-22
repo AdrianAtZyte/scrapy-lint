@@ -433,7 +433,10 @@ CASES: Cases = (
             *(
                 (
                     f"ZYTE_API_SESSION_ENABLED = {value}",
-                    ExpectedIssue("SCP44 session rotation", path=PATH),
+                    [
+                        ExpectedIssue("SCP44 session rotation", path=PATH),
+                        *improper_bool_issues("ZYTE_API_SESSION_ENABLED", value),
+                    ],
                 )
                 for value in TRUE_BOOLS
             ),
