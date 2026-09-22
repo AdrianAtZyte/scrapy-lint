@@ -838,14 +838,19 @@ CASES: Cases = (
                 ),
             ),
             # The add-on sets this one to whatever the project uses as
-            # download handler, so its value is unknown.
+            # download handler, so its value is unknown (no SCP17).
             (
                 "scrapy-zyte-api==0.36.0",
                 (
                     f"{ZYTE_API_ADDON}ZYTE_API_FALLBACK_HTTP_HANDLER = "
                     '"scrapy.core.downloader.handlers.http.HTTPDownloadHandler"'
                 ),
-                NO_ISSUE,
+                ExpectedIssue(
+                    "SCP41 unneeded import path",
+                    line=3,
+                    column=33,
+                    path="a.py",
+                ),
             ),
             # Add-ons are known one by one, so when 2 of them set the same
             # setting the resulting value is unknown, whichever of them the

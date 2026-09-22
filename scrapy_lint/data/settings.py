@@ -2394,53 +2394,303 @@ SETTINGS = {
     ),
     # scrapy-zyte-api plugin settings, in order of appearance in
     # https://scrapy-zyte-api.readthedocs.io/en/latest/reference/settings.html
-    "ZYTE_API_AUTO_FIELD_STATS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_AUTOMAP_PARAMS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_BROWSER_HEADERS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_COOKIE_MIDDLEWARE": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_DEFAULT_PARAMS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_ENABLED": Setting(package="scrapy-zyte-api", type=SettingType.BOOL),
+    "ZYTE_API_AUTO_FIELD_STATS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.22.0")),
+    ),
+    "ZYTE_API_AUTOMAP_PARAMS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.6.0")),
+    ),
+    "ZYTE_API_BROWSER_HEADERS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.DICT,
+        default_value=VersionedValue({"Referer": "referer"}),
+        versioning=Versioning(added_in=Version("0.6.0")),
+    ),
+    "ZYTE_API_COOKIE_MIDDLEWARE": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OBJ,
+        default_value=VersionedValue(
+            "scrapy.downloadermiddlewares.cookies.CookiesMiddleware",
+        ),
+        versioning=Versioning(added_in=Version("0.8.0")),
+    ),
+    "ZYTE_API_DEFAULT_PARAMS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.2.0")),
+    ),
+    "ZYTE_API_ENABLED": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("0.6.0")),
+    ),
+    "ZYTE_API_ETH_KEY": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        is_secret=True,
+        versioning=Versioning(added_in=Version("0.31.0")),
+    ),
     "ZYTE_API_EXPERIMENTAL_COOKIES_ENABLED": Setting(
         package="scrapy-zyte-api",
         type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.8.0")),
     ),
-    "ZYTE_API_FALLBACK_HTTP_HANDLER": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_FALLBACK_HTTPS_HANDLER": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_FALLBACK_REQUEST_FINGERPRINTER_CLASS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_KEY": Setting(package="scrapy-zyte-api", is_secret=True),
-    "ZYTE_API_LOG_REQUESTS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_LOG_REQUESTS_TRUNCATE": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_MAX_COOKIES": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_MAX_REQUESTS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_PRESERVE_DELAY": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_PROVIDER_PARAMS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_REFERRER_POLICY": Setting(package="scrapy-zyte-api"),
+    "ZYTE_API_FALLBACK_HTTP_HANDLER": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OBJ,
+        # Default set as unknown because it depends on DOWNLOAD_HANDLERS.
+        default_value=UNKNOWN_SETTING_VALUE,
+        versioning=Versioning(added_in=Version("0.17.0")),
+    ),
+    "ZYTE_API_FALLBACK_HTTPS_HANDLER": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OBJ,
+        # Default set as unknown because it depends on DOWNLOAD_HANDLERS.
+        default_value=UNKNOWN_SETTING_VALUE,
+        versioning=Versioning(added_in=Version("0.17.0")),
+    ),
+    "ZYTE_API_FALLBACK_REQUEST_FINGERPRINTER_CLASS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OBJ,
+        # Default set as unknown because it depends on whether scrapy-poet is
+        # installed.
+        default_value=UNKNOWN_SETTING_VALUE,
+        versioning=Versioning(added_in=Version("0.7.0")),
+    ),
+    "ZYTE_API_KEY": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        is_secret=True,
+        versioning=Versioning(added_in=Version("0.1.0")),
+    ),
+    "ZYTE_API_LOG_REQUESTS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.7.1")),
+    ),
+    "ZYTE_API_LOG_REQUESTS_TRUNCATE": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.INT,
+        default_value=VersionedValue(64),
+        versioning=Versioning(added_in=Version("0.7.1")),
+    ),
+    "ZYTE_API_MAX_COOKIE_BYTES": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.INT,
+        default_value=VersionedValue(4097),
+        versioning=Versioning(added_in=Version("0.35.0")),
+    ),
+    "ZYTE_API_MAX_COOKIE_NAME_LENGTH": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.INT,
+        default_value=VersionedValue(4085),
+        versioning=Versioning(added_in=Version("0.35.0")),
+    ),
+    "ZYTE_API_MAX_COOKIE_VALUE_LENGTH": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.INT,
+        default_value=VersionedValue(4085),
+        versioning=Versioning(added_in=Version("0.35.0")),
+    ),
+    "ZYTE_API_MAX_COOKIES": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.INT,
+        default_value=VersionedValue(100),
+        versioning=Versioning(added_in=Version("0.8.0")),
+    ),
+    "ZYTE_API_MAX_REQUESTS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OPT_INT,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.11.0")),
+    ),
+    "ZYTE_API_PRESERVE_DELAY": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        # Default set as unknown because it depends on AUTOTHROTTLE_ENABLED.
+        default_value=UNKNOWN_SETTING_VALUE,
+        versioning=Versioning(added_in=Version("0.20.0")),
+    ),
+    "ZYTE_API_PROVIDER_PARAMS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.12.0")),
+    ),
+    "ZYTE_API_REFERRER_POLICY": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OBJ,
+        default_value=VersionedValue("no-referrer"),
+        versioning=Versioning(added_in=Version("0.26.0")),
+    ),
     "ZYTE_API_RETRY_POLICY": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_SESSION_CHECKER": Setting(package="scrapy-zyte-api"),
+    "ZYTE_API_SESSION_CHECKER": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OPT_OBJ,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.19.0")),
+    ),
+    "ZYTE_API_SESSION_COOKIE_MODE": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.35.0")),
+    ),
+    "ZYTE_API_SESSION_CREATION_RETRY_DELAY": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.FLOAT,
+        default_value=VersionedValue(60.0),
+        versioning=Versioning(added_in=Version("0.35.0")),
+    ),
+    "ZYTE_API_SESSION_DELAY": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.FLOAT,
+        # Default set as unknown because it depends on DOWNLOAD_DELAY.
+        default_value=UNKNOWN_SETTING_VALUE,
+        versioning=Versioning(added_in=Version("0.33.0")),
+    ),
     "ZYTE_API_SESSION_ENABLED": Setting(
         package="scrapy-zyte-api",
         type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.19.0")),
     ),
-    "ZYTE_API_SESSION_LOCATION": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_SESSION_MAX_BAD_INITS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_SESSION_MAX_BAD_INITS_PER_POOL": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_SESSION_MAX_CHECK_FAILURES": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_SESSION_MAX_ERRORS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_SESSION_PARAMS": Setting(package="scrapy-zyte-api"),
+    "ZYTE_API_SESSION_INIT_ACTION_FAILURE_INVALIDATES_SESSION": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("0.35.0")),
+    ),
+    "ZYTE_API_SESSION_LOCATION": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.19.0")),
+    ),
+    "ZYTE_API_SESSION_MAX_BAD_INITS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.INT,
+        default_value=VersionedValue(8),
+        versioning=Versioning(added_in=Version("0.19.0")),
+    ),
+    "ZYTE_API_SESSION_MAX_BAD_INITS_PER_POOL": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.19.0")),
+    ),
+    "ZYTE_API_SESSION_MAX_CHECK_FAILURES": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.INT,
+        default_value=VersionedValue(1),
+        versioning=Versioning(added_in=Version("0.28.0")),
+    ),
+    "ZYTE_API_SESSION_MAX_ERRORS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.INT,
+        default_value=VersionedValue(1),
+        versioning=Versioning(added_in=Version("0.19.0")),
+    ),
+    "ZYTE_API_SESSION_PARAMS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.DICT,
+        default_value=VersionedValue({}),
+        versioning=Versioning(added_in=Version("0.19.0")),
+    ),
     "ZYTE_API_SESSION_POOL_SIZE": Setting(
         package="scrapy-zyte-api",
         type=SettingType.INT,
     ),
-    "ZYTE_API_SESSION_POOL_SIZES": Setting(package="scrapy-zyte-api"),
+    "ZYTE_API_SESSION_POOL_SIZES": Setting(
+        package="scrapy-zyte-api",
+        versioning=Versioning(
+            added_in=Version("0.19.0"),
+            deprecated_in=Version("0.33.0"),
+            sunset_guidance=(
+                'use ZYTE_API_SESSION_POOLS instead, with {pool: {"size": n}} values'
+            ),
+        ),
+    ),
     "ZYTE_API_SESSION_POOLS": Setting(
         package="scrapy-zyte-api",
         type=SettingType.DICT,
     ),
-    "ZYTE_API_SESSION_QUEUE_MAX_ATTEMPTS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_SESSION_QUEUE_WAIT_TIME": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_SKIP_HEADERS": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_TRANSPARENT_MODE": Setting(package="scrapy-zyte-api"),
-    "ZYTE_API_USE_ENV_PROXY": Setting(package="scrapy-zyte-api"),
+    "ZYTE_API_SESSION_QUEUE_MAX_ATTEMPTS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.INT,
+        default_value=VersionedValue(60),
+        versioning=Versioning(added_in=Version("0.19.0")),
+    ),
+    "ZYTE_API_SESSION_QUEUE_WAIT_TIME": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.FLOAT,
+        default_value=VersionedValue(1.0),
+        versioning=Versioning(added_in=Version("0.19.0")),
+    ),
+    "ZYTE_API_SESSION_RANDOMIZE_DELAY": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        # Default set as unknown because it depends on RANDOMIZE_DOWNLOAD_DELAY.
+        default_value=UNKNOWN_SETTING_VALUE,
+        versioning=Versioning(added_in=Version("0.33.0")),
+    ),
+    "ZYTE_API_SESSION_STATS_PER_POOL": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.33.0")),
+    ),
+    "ZYTE_API_SKIP_HEADERS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.LIST,
+        default_value=VersionedValue(["Cookie"]),
+        versioning=Versioning(added_in=Version("0.6.0")),
+    ),
+    "ZYTE_API_TRANSPARENT_MODE": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.6.0")),
+    ),
+    "ZYTE_API_USE_ENV_PROXY": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+        versioning=Versioning(added_in=Version("0.10.0")),
+    ),
+    "ZYTE_API_WARN_ON_BAN_SENSITIVE_HEADERS": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+        versioning=Versioning(added_in=Version("0.34.0")),
+    ),
+    # scrapy-zyte-api: undocumented settings
+    "ZYTE_API_URL": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+        versioning=Versioning(added_in=Version("0.3.0")),
+    ),
+    "_ZYTE_API_USER_AGENT": Setting(
+        package="scrapy-zyte-api",
+        type=SettingType.STR,
+        # Default set as unknown because it depends on the installed versions
+        # of scrapy-zyte-api and python-zyte-api.
+        default_value=UNKNOWN_SETTING_VALUE,
+        versioning=Versioning(added_in=Version("0.12.1")),
+    ),
     # scrapy-zyte-smartproxy plugin settings, in order of appearance in
     # https://scrapy-zyte-smartproxy.readthedocs.io/en/latest/settings.html
     "ZYTE_SMARTPROXY_ENABLED": Setting(
