@@ -62,6 +62,15 @@ API_METHODS = (
     ),
     API(
         path="scrapy.Spider",
+        name="log",
+        versioning=Versioning(
+            deprecated_in=Version("2.18.0"),
+            sunset_guidance="use the methods of Spider.logger instead",
+        ),
+        discouraged_in=UNKNOWN_UNSUPPORTED_VERSION,
+    ),
+    API(
+        path="scrapy.Spider",
         name="start_requests",
         versioning=Versioning(
             deprecated_in=Version("2.13.0"),
