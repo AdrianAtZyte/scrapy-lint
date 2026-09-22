@@ -9,12 +9,14 @@ from packaging.version import Version
 from scrapy_lint.ast import is_dict, iter_dict
 from scrapy_lint.data.settings import FEEDS_KEY_VERSION_ADDED
 from scrapy_lint.finders.settings.types import (
-    check_import_path_need,
+    check_component_path,
     has_feed_uri_params,
+    has_valid_authority,
     is_import_path,
     is_path_obj,
 )
 from scrapy_lint.issues import (
+    HARDCODED_SECRET,
     INVALID_SETTING_VALUE,
     NO_CONTACT_INFO,
     SETTING_NEEDS_UPGRADE,
@@ -27,27 +29,46 @@ from scrapy_lint.issues import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from scrapy_lint.context import Context
+    from scrapy_lint.context import Context, Project
+    from scrapy_lint.settings import Setting
 
 
-def check_slot_config(node: Call | Dict) -> Generator[Issue]:
+SLOT_JITTER_VERSION = Version("2.19.0")
+
+
+def check_slot_concurrency(value: expr, pos: Pos) -> Generator[Issue]:
+    if isinstance(value, Constant):
+        if not isinstance(value.value, int):
+            detail = "concurrency must be an integer"
+            yield Issue(INVALID_SETTING_VALUE, pos, detail=detail)
+        elif value.value < 1:
+            detail = "concurrency must be >= 1"
+            yield Issue(INVALID_SETTING_VALUE, pos, detail=detail)
+    elif isinstance(value, UnaryOp) and isinstance(value.op, USub):
+        detail = "concurrency must be >= 1"
+        yield Issue(INVALID_SETTING_VALUE, pos, detail=detail)
+
+
+def check_slot_config(
+    node: Call | Dict,
+    scrapy_version: Version | None,
+) -> Generator[Issue]:
     for key, value in iter_dict(node):
         if not isinstance(key, Constant):
             continue
         param = key.value
+        key_pos = Pos.from_node(key)
         value_pos = Pos.from_node(value)
         if param == "concurrency":
-            if isinstance(value, Constant):
-                if not isinstance(value.value, int):
-                    detail = "concurrency must be an integer"
-                    yield Issue(INVALID_SETTING_VALUE, value_pos, detail=detail)
-                elif value.value < 1:
-                    detail = "concurrency must be >= 1"
-                    yield Issue(INVALID_SETTING_VALUE, value_pos, detail=detail)
-            elif isinstance(value, UnaryOp) and isinstance(value.op, USub):
-                detail = "concurrency must be >= 1"
-                yield Issue(INVALID_SETTING_VALUE, value_pos, detail=detail)
-        elif param == "delay":
+            yield from check_slot_concurrency(value, value_pos)
+        elif param in {"delay", "jitter"}:
+            if (
+                param == "jitter"
+                and scrapy_version
+                and scrapy_version < SLOT_JITTER_VERSION
+            ):
+                detail = f"'jitter' requires Scrapy {SLOT_JITTER_VERSION}+"
+                yield Issue(SETTING_NEEDS_UPGRADE, key_pos, detail=detail)
             if (
                 isinstance(value, UnaryOp)
                 and isinstance(value.op, USub)
@@ -55,22 +76,28 @@ def check_slot_config(node: Call | Dict) -> Generator[Issue]:
                 and isinstance(value.operand.value, (int, float))
                 and value.operand.value > 0
             ):
-                detail = "delay must be >= 0"
+                detail = f"{param} must be >= 0"
                 yield Issue(INVALID_SETTING_VALUE, value_pos, detail=detail)
         elif param == "randomize_delay":
+            if scrapy_version and scrapy_version >= SLOT_JITTER_VERSION:
+                detail = (
+                    f"randomize_delay is deprecated in scrapy "
+                    f"{SLOT_JITTER_VERSION}; use jitter instead"
+                )
+                yield Issue(INVALID_SETTING_VALUE, key_pos, detail=detail)
             if isinstance(value, Constant) and not isinstance(value.value, bool):
                 detail = "randomize_delay must be a boolean"
                 yield Issue(INVALID_SETTING_VALUE, value_pos, detail=detail)
         else:
             detail = "unknown download slot parameter"
-            key_pos = Pos.from_node(key)
             yield Issue(INVALID_SETTING_VALUE, key_pos, detail=detail)
 
 
-def check_download_slots(node: expr, **_) -> Generator[Issue]:
+def check_download_slots(node: expr, context: Context, **_) -> Generator[Issue]:
     if not is_dict(node):
         return
     assert isinstance(node, (Call, Dict))
+    scrapy_version = context.project.frozen_requirements.get("scrapy")
     for key, value in iter_dict(node):
         if isinstance(key, Constant) and not isinstance(key.value, str):
             detail = "DOWNLOAD_SLOTS keys must be download slot IDs as strings"
@@ -80,7 +107,7 @@ def check_download_slots(node: expr, **_) -> Generator[Issue]:
             yield Issue(INVALID_SETTING_VALUE, Pos.from_node(value), detail=detail)
         elif is_dict(value):
             assert isinstance(value, (Call, Dict))
-            yield from check_slot_config(value)
+            yield from check_slot_config(value, scrapy_version)
 
 
 def check_feed_uri(
@@ -122,6 +149,9 @@ def check_feed_uri(
             and not has_feed_uri_params(path)
         ):
             yield unneeded_str
+        if not has_valid_authority(node.value):
+            detail = "invalid URI, e.g. credentials not percent-encoded"
+            yield Issue(INVALID_SETTING_VALUE, pos, detail)
 
 
 def check_feed_class_list(
@@ -160,7 +190,7 @@ def check_feed_class_list(
                 )
                 yield Issue(INVALID_SETTING_VALUE, pos_elt, detail)
             else:
-                yield from check_import_path_need(elt, context.project)
+                yield from check_component_path(elt, context.project)
 
 
 def check_feed_fields(param: str, value: expr, **_kwargs) -> Generator[Issue]:
@@ -252,7 +282,7 @@ def check_feed_obj_list(param: str, value: expr, context: Context) -> Generator[
     if not (isinstance(value, Constant) and isinstance(value.value, str)):
         return
     if is_import_path(value.value):
-        yield from check_import_path_need(value, context.project)
+        yield from check_component_path(value, context.project)
         return
     detail = f"{param!r} ({value.value!r}) does not look like a valid import path"
     yield Issue(INVALID_SETTING_VALUE, pos, detail)
@@ -413,6 +443,30 @@ def check_user_agent(node: expr, **_) -> Generator[Issue]:
         yield issue
 
 
+ZYTE_API_KEY_PATTERN = re.compile(r"[0-9a-f]{32}")
+
+
+def check_zyte_api_key(node: expr, **_) -> Generator[Issue]:
+    if not isinstance(node, Constant):
+        return
+    if not isinstance(node.value, str) or not ZYTE_API_KEY_PATTERN.fullmatch(
+        node.value
+    ):
+        yield Issue(
+            INVALID_SETTING_VALUE, Pos.from_node(node), "must be a Zyte API key"
+        )
+
+
+def check_secret(node: expr, *, setting: Setting, project: Project) -> Generator[Issue]:
+    if not isinstance(node, Constant) or not isinstance(node.value, str):
+        return
+    # An empty value disables the credential, and the default value is public
+    # knowledge.
+    if not node.value or node.value == setting.get_default_value(project):
+        return
+    yield Issue(HARDCODED_SECRET, Pos.from_node(node), setting.name)
+
+
 class ValueChecker(Protocol):  # pylint: disable=too-few-public-methods
     def __call__(self, node: expr, *, context: Context) -> Generator[Issue]: ...
 
@@ -422,4 +476,5 @@ VALUE_CHECKERS: dict[str, ValueChecker] = {
     "FEED_URI": check_feed_uri,
     "FEEDS": check_feeds,
     "USER_AGENT": check_user_agent,
+    "ZYTE_API_KEY": check_zyte_api_key,
 }

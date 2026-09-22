@@ -192,8 +192,37 @@ CASES: Cases = (
                         "    pass",
                     ),
                     (
-                        "def feed_uri_params(params, spider):",
+                        "def helper_function(params, spider):",
                         "    return params",
+                    ),
+                )
+            ),
+            # SCP59 lowercase setting: class and function definitions
+            *(
+                (
+                    "\n".join(lines),
+                    ExpectedIssue(
+                        f"SCP59 lowercase setting: did you mean: {upper}?",
+                        column=column,
+                        path=PATH,
+                    ),
+                )
+                for lines, column, upper in (
+                    (
+                        (
+                            "class robotstxt_obey:",
+                            "    pass",
+                        ),
+                        6,
+                        "ROBOTSTXT_OBEY",
+                    ),
+                    (
+                        (
+                            "def feed_uri_params(params, spider):",
+                            "    return params",
+                        ),
+                        4,
+                        "FEED_URI_PARAMS",
                     ),
                 )
             ),
@@ -245,6 +274,21 @@ CASES: Cases = (
                     "import foo",
                     "from foo import FOO as bar",
                     "import FOO as bar",
+                )
+            ),
+            # SCP59 lowercase setting: imports
+            *(
+                (
+                    code,
+                    ExpectedIssue(
+                        "SCP59 lowercase setting: did you mean: ROBOTSTXT_OBEY?",
+                        column=column if ALIAS_HAS_COL_OFFSET else 0,
+                        path=PATH,
+                    ),
+                )
+                for code, column in (
+                    ("from foo import robotstxt_obey", 16),
+                    ("import foo as robotstxt_obey", 14),
                 )
             ),
             # SCP17 redundant setting value
@@ -340,10 +384,106 @@ CASES: Cases = (
                 "FOO = 'bar'",
                 ExpectedIssue("SCP27 unknown setting", path=PATH),
             ),
+            # SCP59 lowercase setting: assignments
+            *(
+                (
+                    code,
+                    ExpectedIssue(
+                        f"SCP59 lowercase setting: did you mean: {upper}?",
+                        path=PATH,
+                    ),
+                )
+                for code, upper in (
+                    ("robotstxt_obey = True", "ROBOTSTXT_OBEY"),
+                    ("bot_name = 'a'", "BOT_NAME"),
+                    ("Bot_Name = 'a'", "BOT_NAME"),
+                )
+            ),
+            *(
+                (code, NO_ISSUE)
+                for code in (
+                    "base_dir = 'a'",
+                    "helper = 1",
+                )
+            ),
             # SCP35 no-op setting update
             (
                 "SPIDER_MODULES = ['myproject.spiders']",
                 NO_ISSUE,
+            ),
+            # SCP44 session rotation
+            *(
+                (
+                    f"ZYTE_API_SESSION_ENABLED = {value}",
+                    ExpectedIssue("SCP44 session rotation", path=PATH),
+                )
+                for value in TRUE_BOOLS
+            ),
+            *(
+                (
+                    f"ZYTE_API_SESSION_ENABLED = True\n{code}",
+                    issues,
+                )
+                for code, issues in (
+                    ("ZYTE_API_SESSION_POOL_SIZE = 1", NO_ISSUE),
+                    ("ZYTE_API_SESSION_POOL_SIZE = '1'", NO_ISSUE),
+                    ("ZYTE_API_SESSION_POOL_SIZE = size", NO_ISSUE),
+                    (
+                        "ZYTE_API_SESSION_POOL_SIZE = 8",
+                        ExpectedIssue(
+                            "SCP44 session rotation",
+                            line=2,
+                            column=29,
+                            path=PATH,
+                        ),
+                    ),
+                    (
+                        (
+                            "ZYTE_API_SESSION_POOL_SIZE = 1\n"
+                            "ZYTE_API_SESSION_POOLS = {'a.example': {'size': 2}}"
+                        ),
+                        ExpectedIssue(
+                            "SCP44 session rotation",
+                            line=3,
+                            column=48,
+                            path=PATH,
+                        ),
+                    ),
+                    (
+                        (
+                            "ZYTE_API_SESSION_POOL_SIZE = 1\n"
+                            "ZYTE_API_SESSION_POOLS = {'a.example': {'size': 1}}"
+                        ),
+                        NO_ISSUE,
+                    ),
+                    (
+                        (
+                            "ZYTE_API_SESSION_POOL_SIZE = 1\n"
+                            "ZYTE_API_SESSION_POOLS = {'a.example': 2}"
+                        ),
+                        NO_ISSUE,
+                    ),
+                    (
+                        "ZYTE_API_SESSION_POOL_SIZE = 'foo'",
+                        ExpectedIssue(
+                            "SCP36 invalid setting value",
+                            line=2,
+                            column=29,
+                            path=PATH,
+                        ),
+                    ),
+                )
+            ),
+            *(
+                (code, NO_ISSUE)
+                for code in (
+                    "ZYTE_API_SESSION_POOL_SIZE = 8",
+                    "ZYTE_API_SESSION_ENABLED = False\nZYTE_API_SESSION_POOL_SIZE = 8",
+                    (
+                        "ZYTE_API_SESSION_ENABLED = enabled\n"
+                        "ZYTE_API_SESSION_POOL_SIZE = 8"
+                    ),
+                )
             ),
             (
                 "settings['SPIDER_MODULES'] = ['myproject.spiders']",
@@ -414,30 +554,53 @@ CASES: Cases = (
                 )
                 for code, column in (
                     (
-                        "from zyte_api import aggressive_retrying\n"
-                        "ZYTE_API_RETRY_POLICY = aggressive_retrying",
+                        (
+                            "from zyte_api import aggressive_retrying\n"
+                            "ZYTE_API_RETRY_POLICY = aggressive_retrying"
+                        ),
                         24,
                     ),
                     (
-                        "import zyte_api\n"
-                        "ZYTE_API_RETRY_POLICY = zyte_api.aggressive_retrying",
+                        (
+                            "import zyte_api\n"
+                            "ZYTE_API_RETRY_POLICY = zyte_api.aggressive_retrying"
+                        ),
                         24,
                     ),
                     (
-                        "import scrapy_zyte_api\n"
-                        "ZYTE_API_SESSION_RETRY_POLICY = "
-                        "scrapy_zyte_api.SESSION_AGGRESSIVE_RETRY_POLICY",
+                        (
+                            "import scrapy_zyte_api\n"
+                            "ZYTE_API_SESSION_RETRY_POLICY = "
+                            "scrapy_zyte_api.SESSION_AGGRESSIVE_RETRY_POLICY"
+                        ),
                         32,
                     ),
                 )
             ),
             # A name that is not an import may hold the import path string.
             (
-                'policy = "zyte_api.aggressive_retrying"\n'
-                "ZYTE_API_RETRY_POLICY = policy",
+                (
+                    'policy = "zyte_api.aggressive_retrying"\n'
+                    "ZYTE_API_RETRY_POLICY = policy"
+                ),
                 NO_ISSUE,
             ),
         )
+    ),
+    # SCP59 lowercase setting also fires for known-settings entries.
+    (
+        [
+            File("[settings]\na=a", path="scrapy.cfg"),
+            File("custom_setting = 1", path=PATH),
+        ],
+        (
+            *default_issues(PATH),
+            ExpectedIssue(
+                "SCP59 lowercase setting: did you mean: CUSTOM_SETTING?",
+                path=PATH,
+            ),
+        ),
+        {"known-settings": ["CUSTOM_SETTING"]},
     ),
     # Checks that may work with unknown settings should ignore module variables
     # with any lowercase character in the name, but should take into account
@@ -506,10 +669,12 @@ CASES: Cases = (
                 (code, 8, ())
                 for code in (
                     "USER_AGENT = 'Jane Doe (jane@doe.example)'",
-                    "if a:\n"
-                    "    USER_AGENT = 'Jane Doe (jane@doe.example)'\n"
-                    "else:\n"
-                    "    USER_AGENT = 'Example Company (+https://company.example)'",
+                    (
+                        "if a:\n"
+                        "    USER_AGENT = 'Jane Doe (jane@doe.example)'\n"
+                        "else:\n"
+                        "    USER_AGENT = 'Example Company (+https://company.example)'"
+                    ),
                 )
             ),
             # SCP09 robots.txt ignored by default
