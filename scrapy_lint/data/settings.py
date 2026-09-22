@@ -1230,8 +1230,16 @@ SETTINGS = {
     # scrapy-deltafetch plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-deltafetch#usage
     "DELTAFETCH_ENABLED": Setting(package="scrapy-deltafetch", type=SettingType.BOOL),
-    "DELTAFETCH_DIR": Setting(package="scrapy-deltafetch"),
-    "DELTAFETCH_RESET": Setting(package="scrapy-deltafetch"),
+    "DELTAFETCH_DIR": Setting(
+        package="scrapy-deltafetch",
+        type=SettingType.STR,
+        default_value=VersionedValue("deltafetch"),
+    ),
+    "DELTAFETCH_RESET": Setting(
+        package="scrapy-deltafetch",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+    ),
     # scrapy-feedexporter-dropbox plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-feedexporter-dropbox
     "DROPBOX_API_TOKEN": Setting(package="scrapy-feedexporter-dropbox", is_secret=True),
@@ -1270,12 +1278,12 @@ SETTINGS = {
     "FIELDSTATS_SKIP_NONE": Setting(
         package="scrapy-fieldstats",
         type=SettingType.BOOL,
-        default_value=VersionedValue(False),
+        default_value=VersionedValue(True),
     ),
     "FIELDSTATS_ADD_TO_STATS": Setting(
         package="scrapy-fieldstats",
         type=SettingType.BOOL,
-        default_value=VersionedValue(False),
+        default_value=VersionedValue(True),
     ),
     # hcf-backend plugin settings, in order of appearance in
     # https://github.com/scrapinghub/hcf-backend/blob/master/hcf_backend/backend.py
@@ -1336,19 +1344,113 @@ SETTINGS = {
     "SCRAPY_POET_TESTS_DIR": Setting(package="scrapy-poet"),
     # scrapy-redis plugin settings, in order of appearance in
     # https://github.com/rmax/scrapy-redis/wiki/Usage
-    "SCHEDULER_SERIALIZER": Setting(package="scrapy-redis"),
-    "SCHEDULER_PERSIST": Setting(package="scrapy-redis"),
-    "SCHEDULER_QUEUE_CLASS": Setting(package="scrapy-redis"),
-    "SCHEDULER_IDLE_BEFORE_CLOSE": Setting(package="scrapy-redis"),
-    "REDIS_ITEMS_KEY": Setting(package="scrapy-redis"),
-    "REDIS_ITEMS_SERIALIZER": Setting(package="scrapy-redis"),
-    "REDIS_HOST": Setting(package="scrapy-redis"),
-    "REDIS_PORT": Setting(package="scrapy-redis"),
-    "REDIS_URL": Setting(package="scrapy-redis"),
-    "REDIS_PARAMS": Setting(package="scrapy-redis"),
-    "REDIS_START_URLS_AS_SET": Setting(package="scrapy-redis"),
-    "REDIS_START_URLS_KEY": Setting(package="scrapy-redis"),
-    "REDIS_ENCODING": Setting(package="scrapy-redis"),
+    "SCHEDULER_SERIALIZER": Setting(
+        package="scrapy-redis",
+        type=SettingType.OPT_OBJ,
+        default_value=VersionedValue(None),
+    ),
+    "SCHEDULER_PERSIST": Setting(
+        package="scrapy-redis",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+    ),
+    "SCHEDULER_FLUSH_ON_START": Setting(
+        package="scrapy-redis",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+    ),
+    "SCHEDULER_QUEUE_CLASS": Setting(
+        package="scrapy-redis",
+        type=SettingType.OBJ,
+        default_value=VersionedValue("scrapy_redis.queue.PriorityQueue"),
+    ),
+    "SCHEDULER_QUEUE_KEY": Setting(
+        package="scrapy-redis",
+        type=SettingType.STR,
+        default_value=VersionedValue("%(spider)s:requests"),
+    ),
+    "SCHEDULER_DUPEFILTER_KEY": Setting(
+        package="scrapy-redis",
+        type=SettingType.STR,
+        default_value=VersionedValue("%(spider)s:dupefilter"),
+    ),
+    "SCHEDULER_IDLE_BEFORE_CLOSE": Setting(
+        package="scrapy-redis",
+        type=SettingType.INT,
+        default_value=VersionedValue(0),
+    ),
+    "REDIS_ITEMS_KEY": Setting(
+        package="scrapy-redis",
+        type=SettingType.STR,
+        default_value=VersionedValue("%(spider)s:items"),
+    ),
+    "REDIS_ITEMS_SERIALIZER": Setting(
+        package="scrapy-redis",
+        type=SettingType.OPT_OBJ,
+        default_value=VersionedValue(None),
+    ),
+    "REDIS_HOST": Setting(
+        package="scrapy-redis",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+    ),
+    "REDIS_PORT": Setting(
+        package="scrapy-redis",
+        type=SettingType.OPT_INT,
+        default_value=VersionedValue(None),
+    ),
+    "REDIS_DB": Setting(package="scrapy-redis"),
+    "REDIS_URL": Setting(
+        package="scrapy-redis",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+    ),
+    "REDIS_PARAMS": Setting(
+        package="scrapy-redis",
+        type=SettingType.DICT,
+        default_value=VersionedValue(
+            {
+                "socket_timeout": 30,
+                "socket_connect_timeout": 30,
+                "retry_on_timeout": True,
+                "encoding": "utf-8",
+            }
+        ),
+    ),
+    "REDIS_START_URLS_AS_SET": Setting(
+        package="scrapy-redis",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+    ),
+    "REDIS_START_URLS_AS_ZSET": Setting(
+        package="scrapy-redis",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+    ),
+    "REDIS_START_URLS_KEY": Setting(
+        package="scrapy-redis",
+        type=SettingType.STR,
+        default_value=VersionedValue("%(name)s:start_urls"),
+    ),
+    "REDIS_START_URLS_BATCH_SIZE": Setting(
+        package="scrapy-redis",
+        type=SettingType.INT,
+        versioning=Versioning(deprecated_in=Version("0.8.0")),
+        replacement="CONCURRENT_REQUESTS",
+    ),
+    "REDIS_ENCODING": Setting(
+        package="scrapy-redis",
+        type=SettingType.STR,
+        default_value=VersionedValue("utf-8"),
+    ),
+    "REDIS_DECODE_RESPONSES": Setting(package="scrapy-redis"),
+    "REDIS_KEY_CHECK_INTERVAL": Setting(package="scrapy-redis"),
+    "MAX_IDLE_TIME_BEFORE_CLOSE": Setting(
+        package="scrapy-redis",
+        type=SettingType.INT,
+        default_value=VersionedValue(0),
+        versioning=Versioning(added_in=Version("0.7.2")),
+    ),
     # scrapyrt plugin settings, in order of appearance in
     # https://scrapyrt.readthedocs.io/en/latest/api.html#available-settings
     "SERVICE_ROOT": Setting(package="scrapyrt"),
@@ -1363,18 +1465,56 @@ SETTINGS = {
     "SETTINGS_LOGGING_ENABLED": Setting(
         package="scrapy-settings-log",
         type=SettingType.BOOL,
+        default_value=VersionedValue(False),
     ),
-    "SETTINGS_LOGGING_REGEX": Setting(package="scrapy-settings-log"),
-    "SETTINGS_LOGGING_INDENT": Setting(package="scrapy-settings-log"),
+    "SETTINGS_LOGGING_REGEX": Setting(
+        package="scrapy-settings-log",
+        type=SettingType.OPT_STR,
+        default_value=VersionedValue(None),
+    ),
+    "SETTINGS_LOGGING_INDENT": Setting(
+        package="scrapy-settings-log",
+        type=SettingType.OPT_INT,
+        default_value=VersionedValue(None),
+    ),
     "MASKED_SENSITIVE_SETTINGS_ENABLED": Setting(
         package="scrapy-settings-log",
         type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+    ),
+    "MASKED_SENSITIVE_SETTINGS_REGEX_LIST": Setting(
+        package="scrapy-settings-log",
+        type=SettingType.LIST,
+        default_value=VersionedValue(
+            [
+                r"(?i).*(api[\W_]*key).*",
+                r"(?i).*(AWS[\W_]*(SECRET[\W_]*)?(ACCESS)?[\W_]*(KEY|ACCESS[\W_]*KEY))",
+                r"(?i).*([\W_]*password[\W_]*).*",
+            ]
+        ),
     ),
     # scrapy-feedexporter-sftp plugin settings, in order of appearance in
     # https://github.com/scrapy-plugins/scrapy-feedexporter-sftp
     "FEED_STORAGE_SFTP_PKEY": Setting(
         package="scrapy-feedexporter-sftp", is_secret=True
     ),
+    # scrapy-splash plugin settings, in order of appearance in
+    # https://github.com/scrapy-plugins/scrapy-splash#configuration
+    "SPLASH_URL": Setting(package="scrapy-splash"),
+    "SPLASH_COOKIES_DEBUG": Setting(
+        package="scrapy-splash",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(False),
+    ),
+    "SPLASH_LOG_400": Setting(
+        package="scrapy-splash",
+        type=SettingType.BOOL,
+        default_value=VersionedValue(True),
+    ),
+    "SPLASH_SLOT_POLICY": Setting(package="scrapy-splash"),
+    "SPLASH_USER": Setting(package="scrapy-splash"),
+    "SPLASH_PASS": Setting(package="scrapy-splash", is_secret=True),
+    "SCRAPY_SPLASH_REQUEST_FINGERPRINTER_BASE_CLASS": Setting(package="scrapy-splash"),
     # spidermon plugin settings, in order of appearance in the docs:
     # https://spidermon.readthedocs.io/en/latest/settings.html
     "SPIDERMON_ENABLED": Setting(package="spidermon", type=SettingType.BOOL),
