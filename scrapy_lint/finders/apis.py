@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from ast import AST, AsyncFunctionDef, Call, ClassDef, FunctionDef, expr, keyword
+from ast import (
+    AST,
+    AsyncFunctionDef,
+    Attribute,
+    Call,
+    ClassDef,
+    FunctionDef,
+    expr,
+    keyword,
+)
 from typing import TYPE_CHECKING
 
 from scrapy_lint.ast import definition_column, extract_literal_value, get_func_name
@@ -46,6 +55,7 @@ def implements(api: API, bases: set[str]) -> bool:
 
 PARAMETERS = by_local_name(API_PARAMETERS)
 METHODS = by_name(API_METHODS)
+CLASS_METHODS = by_local_name(API_METHODS)
 SPACES = (b" ", b"\t")
 
 
@@ -65,6 +75,12 @@ class APIIssueFinder:
         name = get_func_name(node.func)
         if name is None:
             return
+        if isinstance(node.func, Attribute):
+            receiver = get_func_name(node.func.value)
+            api = CLASS_METHODS.get((receiver, name)) if receiver else None
+            if api is not None:
+                subject = f"{api.name} method of {api.path}"
+                yield from self.check_api(api, Pos.from_node(node), subject)
         for kw in node.keywords:
             if kw.arg is None:
                 continue
