@@ -391,8 +391,10 @@ class SettingChecker:
         # A value that is not even a valid credential is not a leaked one.
         if setting.is_secret and not invalid:
             yield from check_secret(node, setting=setting, project=self.project)
-        if setting.type is not None and not is_allowed_none(
-            node, setting, self.project
+        if (
+            not invalid
+            and setting.type is not None
+            and not is_allowed_none(node, setting, self.project)
         ):
             yield from TYPE_CHECKERS[setting.type](
                 node,
