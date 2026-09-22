@@ -1,35 +1,27 @@
 from __future__ import annotations
 
-import ast
 from ast import (
     AST,
     Assign,
     Attribute,
+    AugAssign,
     Call,
     ClassDef,
     Compare,
     Constant,
-    Del,
     Dict,
     FunctionDef,
-    GeneratorExp,
     Import,
     ImportFrom,
     In,
-    Lambda,
-    Load,
     Module,
     Name,
     NodeVisitor,
     NotIn,
-    Store,
     Subscript,
-    alias,
     expr,
-    keyword,
 )
 from contextlib import suppress
-from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
 from packaging.version import Version
@@ -42,60 +34,34 @@ from scrapy_lint.ast import (
     iter_dict,
 )
 from scrapy_lint.data.addons import ADDONS
-from scrapy_lint.data.packages import PACKAGES
-from scrapy_lint.data.settings import (
-    MAX_AUTOMATIC_SUGGESTIONS,
-    MIN_AUTOMATIC_SUGGESTION_SCORE,
-    PREDEFINED_SUGGESTIONS,
-    SETTINGS,
-)
+from scrapy_lint.data.settings import SETTINGS
 from scrapy_lint.issues import (
-    BASE_SETTING_USE,
-    DEPRECATED_SETTING,
     IMPORTED_SETTING,
     IMPROPER_SETTING_DEFINITION,
     INCOMPLETE_PROJECT_THROTTLING,
     LOW_PROJECT_THROTTLING,
-    LOWERCASE_SETTING,
     MISSING_CHANGING_SETTING,
-    MISSING_SETTING_REQUIREMENT,
-    NO_OP_SETTING_UPDATE,
     NO_PROJECT_USER_AGENT,
-    NON_PICKLABLE_SETTING,
     REDEFINED_SETTING,
     REDUNDANT_SETTING_VALUE,
-    REMOVED_SETTING,
     ROBOTS_TXT_IGNORED_BY_DEFAULT,
-    SETTING_NEEDS_UPGRADE,
-    UNKNOWN_SETTING,
+    SESSION_ROTATION,
     UNNEEDED_SETTING_GET,
-    WRONG_SETTING_METHOD,
-    ZYTE_RAW_PARAMS,
+    WRONG_ADDON_ORDER,
     Issue,
     Pos,
 )
 from scrapy_lint.settings import (
     MAX_DEFAULT_VALUE_HISTORY,
-    SETTING_GETTERS,
     SETTING_METHODS,
     SETTING_SETTERS,
-    SETTING_TYPE_GETTERS,
-    SETTING_UPDATER_TYPES,
-    SETTING_UPDATERS,
     UNKNOWN_SETTING_VALUE,
-    Setting,
     UnknownSettingValue,
     getbool,
 )
-from scrapy_lint.versions import (
-    UNKNOWN_FUTURE_VERSION,
-    UNKNOWN_UNSUPPORTED_VERSION,
-    UnknownUnsupportedVersion,
-    check_sunset,
-)
+from scrapy_lint.versions import UNKNOWN_FUTURE_VERSION, UNKNOWN_UNSUPPORTED_VERSION
 
-from .types import TYPE_CHECKERS, is_allowed_none
-from .values import VALUE_CHECKERS, check_secret
+from .checker import SESSION_SETTINGS, LineNumber, SettingChecker
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -103,289 +69,7 @@ if TYPE_CHECKING:
 
     from scrapy_lint.context import Context
 
-LineNumber = int
-IssueNode = Constant | Name | keyword | ClassDef | FunctionDef | Import | ImportFrom
-
-
-class SettingChecker:
-    def __init__(self, context: Context) -> None:
-        self.context = context
-        self.project = context.project
-        self.additional_known_settings = set(context.options.get("known-settings", []))
-        self.in_update_pre_crawler_settings = False
-        self.in_update_settings = False
-        self.source: str | None = None
-
-    def is_known_setting(self, name: str) -> bool:
-        return name in SETTINGS or name in self.additional_known_settings
-
-    def check_lowercase_name(self, name: str, pos: Pos) -> Generator[Issue]:
-        upper = name.upper()
-        if upper != name and self.is_known_setting(upper):
-            yield Issue(LOWERCASE_SETTING, pos, f"did you mean: {upper}?")
-
-    def is_supported_setting(self, name: str) -> bool:
-        if not self.project.packages or name not in SETTINGS:
-            return True
-        setting = SETTINGS[name]
-        if setting.package not in self.project.frozen_requirements or (
-            not setting.versioning.added_in and not setting.versioning.deprecated_in
-        ):
-            return setting.package in self.project.packages
-        deprecated_in = setting.versioning.deprecated_in
-        if isinstance(deprecated_in, UnknownUnsupportedVersion):
-            deprecated_in = PACKAGES[setting.package].lowest_supported_version
-            assert deprecated_in
-        package_version = self.project.frozen_requirements[setting.package]
-        return (
-            not setting.versioning.added_in
-            or package_version >= setting.versioning.added_in
-        ) and (not deprecated_in or package_version < deprecated_in)
-
-    def suggest_names(self, unknown_name: str) -> list[str]:
-        if unknown_name in PREDEFINED_SUGGESTIONS:
-            return [
-                setting
-                for setting in PREDEFINED_SUGGESTIONS[unknown_name]
-                if self.is_supported_setting(setting)
-            ]
-        matches = []
-        for candidate in self.additional_known_settings | set(SETTINGS):
-            if (
-                candidate.endswith("_BASE") and not unknown_name.endswith("_BASE")
-            ) or not self.is_supported_setting(candidate):
-                continue
-            ratio = SequenceMatcher(None, unknown_name, candidate).ratio()
-            if ratio >= MIN_AUTOMATIC_SUGGESTION_SCORE:
-                matches.append((candidate, ratio))
-        matches.sort(key=lambda x: (-x[1], x[0]))
-        return [m[0] for m in matches[:MAX_AUTOMATIC_SUGGESTIONS]]
-
-    def check_known_name(self, name: str, pos: Pos) -> Generator[Issue]:
-        yield from self.check_special_names(name, pos)
-        if name not in SETTINGS:
-            return
-        setting = SETTINGS[name]
-        package = setting.package
-        yield from self.check_setting_requirement(setting, pos)
-        if package not in self.project.frozen_requirements:
-            return
-        yield from self.check_setting_versioning(setting, pos)
-
-    def check_special_names(self, name: str, pos: Pos) -> Generator[Issue]:
-        if name.endswith("_BASE"):
-            yield Issue(BASE_SETTING_USE, pos)
-        elif name == "ZYTE_API_DEFAULT_PARAMS":
-            yield Issue(ZYTE_RAW_PARAMS, pos)
-
-    def check_setting_requirement(self, setting, pos: Pos) -> Generator[Issue]:
-        package = setting.package
-        if (
-            package not in self.project.frozen_requirements
-            and self.project.packages
-            and package not in self.project.packages
-        ):
-            yield Issue(MISSING_SETTING_REQUIREMENT, pos, package)
-
-    def check_setting_versioning(self, setting, pos: Pos) -> Generator[Issue]:
-        package = setting.package
-        added_in = setting.versioning.added_in
-        version = self.project.frozen_requirements[package]
-        if added_in and version < added_in:
-            yield Issue(SETTING_NEEDS_UPGRADE, pos, f"added in {package} {added_in}")
-            return
-        yield from check_sunset(
-            setting,
-            version,
-            pos,
-            DEPRECATED_SETTING,
-            REMOVED_SETTING,
-        )
-
-    def check_dict(self, node: expr) -> Generator[Issue]:
-        if not is_dict(node):
-            return
-        assert isinstance(node, (Call, Dict))
-        for key, value in iter_dict(node):
-            if not isinstance(key, Constant):
-                continue
-            yield from self.check_name(key)
-            yield from self.check_update(key)
-            if isinstance(key.value, str):
-                yield from self.check_value(key.value, value)
-
-    def check_name(
-        self,
-        node: Constant
-        | Name
-        | keyword
-        | ClassDef
-        | FunctionDef
-        | tuple[Import | ImportFrom, alias],
-    ) -> Generator[Issue]:
-        resolved_node: IssueNode
-        name: Any
-        if isinstance(node, tuple):
-            resolved_node, import_alias = node
-            name = import_alias.asname or import_alias.name
-        else:
-            resolved_node = node
-            import_alias = None
-            name = (
-                resolved_node.value
-                if isinstance(resolved_node, Constant)
-                else resolved_node.id
-                if isinstance(resolved_node, Name)
-                else resolved_node.arg
-                if isinstance(resolved_node, keyword)
-                else resolved_node.name
-            )
-        if not isinstance(name, str):
-            return  # Not a string, so not a setting name
-        if isinstance(resolved_node, (Import, ImportFrom)):
-            assert import_alias
-            column = import_column(import_alias)
-        elif isinstance(resolved_node, (ClassDef, FunctionDef)):
-            column = definition_column(resolved_node)
-        else:
-            column = resolved_node.col_offset
-        pos = Pos.from_node(resolved_node, column)
-        if not self.is_known_setting(name):
-            detail = None
-            if suggestions := self.suggest_names(name):
-                detail = f"did you mean: {', '.join(suggestions)}?"
-            yield Issue(UNKNOWN_SETTING, pos, detail)
-            return
-        yield from self.check_known_name(name, pos)
-
-    def check_update(self, node: keyword | Constant) -> Generator[Issue]:
-        name = node.value if isinstance(node, Constant) else node.arg
-        if not isinstance(name, str) or name not in SETTINGS:
-            return
-        setting = SETTINGS[name]
-        if setting.is_pre_crawler and not self.in_update_pre_crawler_settings:
-            yield Issue(NO_OP_SETTING_UPDATE, Pos.from_node(node))
-
-    def check_method(self, name_node: Constant, call: Call) -> Generator[Issue]:
-        func = call.func
-        assert isinstance(func, Attribute)
-        name = name_node.value
-        assert isinstance(name, str)
-        if name not in SETTINGS:
-            return
-        setting = SETTINGS[name]
-        name_pos = Pos.from_node(name_node)
-        if (
-            func.attr in SETTING_UPDATERS
-            and setting.is_pre_crawler
-            and not self.in_update_pre_crawler_settings
-        ):
-            yield Issue(NO_OP_SETTING_UPDATE, name_pos)
-        yield from self.check_wrong_setting_method(setting, call, name_pos)
-
-    def check_wrong_setting_method(
-        self,
-        setting: Setting,
-        call: Call,
-        name_pos: Pos,
-    ) -> Generator[Issue]:
-        func = call.func
-        assert isinstance(func, Attribute)
-        if (
-            setting.type is not None
-            and func.attr in SETTING_UPDATER_TYPES
-            and setting.type not in SETTING_UPDATER_TYPES[func.attr]
-        ):
-            yield Issue(WRONG_SETTING_METHOD, name_pos)
-        if func.attr not in SETTING_GETTERS or setting.type is None:
-            return
-        assert func.end_col_offset is not None
-        column = func.end_col_offset - len(func.attr)
-        pos = Pos.from_node(func, column)
-        if setting.type in SETTING_TYPE_GETTERS:
-            expected = SETTING_TYPE_GETTERS[setting.type]
-            if func.attr != expected and (
-                expected != "getwithbase" or not self.in_update_settings
-            ):
-                yield Issue(WRONG_SETTING_METHOD, pos, f"use {expected}()")
-        elif func.attr not in {"get", "__getitem__"}:
-            has_default = False
-            if len(call.args) > 1:
-                has_default = True
-            else:
-                for kw in call.keywords:
-                    if kw.arg == "default":
-                        has_default = True
-                        break
-            if has_default:
-                yield Issue(WRONG_SETTING_METHOD, pos, "use get()")
-            else:
-                yield Issue(WRONG_SETTING_METHOD, pos, "use []")
-
-    def check_subscript(self, name: str, node: Subscript) -> Generator[Issue]:
-        if name not in SETTINGS:
-            return
-        setting = SETTINGS[name]
-        if (
-            isinstance(node.ctx, Load)
-            and setting.type is not None
-            and setting.type in SETTING_TYPE_GETTERS
-            and (
-                SETTING_TYPE_GETTERS[setting.type] != "getwithbase"
-                or not self.in_update_settings
-            )
-        ):
-            if isinstance(node.value, Name):
-                column = node.value.col_offset + len(node.value.id)
-            else:
-                assert isinstance(node.value, Attribute)
-                assert node.value.end_col_offset is not None
-                column = node.value.end_col_offset - len(node.value.attr)
-            expected = SETTING_TYPE_GETTERS[setting.type]
-            pos = Pos.from_node(node, column)
-            yield Issue(WRONG_SETTING_METHOD, pos, f"use {expected}()")
-        if (
-            isinstance(node.ctx, (Store, Del))
-            and setting.is_pre_crawler
-            and not self.in_update_pre_crawler_settings
-        ):
-            column = getattr(node.slice, "col_offset", node.col_offset + 1)
-            yield Issue(NO_OP_SETTING_UPDATE, Pos.from_node(node, column))
-
-    def is_materializer_call(self, parent):
-        if not isinstance(parent, Call):
-            return False
-        func = parent.func
-        return isinstance(func, Name) and func.id in {"list", "tuple", "set"}
-
-    def check_non_picklable(self, node, parent=None):
-        if isinstance(node, Lambda) or (
-            isinstance(node, GeneratorExp) and not self.is_materializer_call(parent)
-        ):
-            yield Issue(NON_PICKLABLE_SETTING, Pos.from_node(node))
-        for child in ast.iter_child_nodes(node):
-            yield from self.check_non_picklable(child, node)
-
-    def check_value(self, name: str, node: expr) -> Generator[Issue]:
-        if name in VALUE_CHECKERS:
-            yield from VALUE_CHECKERS[name](node, context=self.context)
-
-        yield from self.check_non_picklable(node)
-
-        if name not in SETTINGS:
-            return
-        setting = SETTINGS[name]
-        if setting.is_secret:
-            yield from check_secret(node, setting=setting, project=self.project)
-        if setting.type is not None and not is_allowed_none(
-            node, setting, self.project
-        ):
-            yield from TYPE_CHECKERS[setting.type](
-                node,
-                setting=setting,
-                project=self.project,
-                source=self.source,
-            )
+    from .checker import AddonEntry
 
 
 class SettingIssueFinder:
@@ -403,6 +87,9 @@ class SettingIssueFinder:
             return
         if isinstance(node, Assign):
             yield from self.find_assign_issues(node)
+            return
+        if isinstance(node, AugAssign):
+            yield from self.find_aug_assign_issues(node)
             return
         if isinstance(node, Subscript):
             yield from self.find_subscript_issues(node)
@@ -498,6 +185,23 @@ class SettingIssueFinder:
                 yield from self.setting_checker.check_value(
                     target.slice.value,
                     node.value,
+                )
+
+    def find_aug_assign_issues(self, node: AugAssign) -> Generator[Issue]:
+        # An augmented assignment reads the setting before writing it back.
+        target = node.target
+        if (
+            isinstance(target, Subscript)
+            and self.looks_like_settings_variable(target.value)
+            and self.looks_like_setting_constant(target.slice)
+        ):
+            assert isinstance(target.slice, Constant)
+            name = target.slice.value
+            assert isinstance(name, str)
+            if name in SETTINGS:
+                yield from self.setting_checker.check_subscript_read(
+                    SETTINGS[name],
+                    target,
                 )
 
     def looks_like_setting_method(self, func: expr) -> bool:
@@ -637,15 +341,19 @@ class SettingModuleIssueFinder(NodeVisitor):
         self.issues.extend(processor.iter_issues())
 
 
-class SettingsModuleSettingsProcessor:
+class SettingsModuleSettingsProcessor:  # pylint: disable=too-many-instance-attributes
     def __init__(self, context: Context, setting_checker: SettingChecker):
         self.context = context
         self.seen_settings: set[str] = set()
         self.robotstxt_obey_values: list[tuple[bool, int, int]] = []
-        self.redundant_values: list[tuple[str, int, int]] = []
+        self.setting_values: list[tuple[str, Any, int, int]] = []
+        self.session_enabled = False
+        self.session_pool_sizes: list[expr] = []
         self.setting_checker = setting_checker
         self.imports: dict[str, str] = {}
-        self.addon_settings: set[str] = set()
+        # Setting name to the value add-ons leave it at and the package of the
+        # add-on that sets it.
+        self.addon_settings: dict[str, tuple[Any, str]] = {}
 
     def process_assignment(self, assignment: Assign) -> Generator[Issue]:
         for target in assignment.targets:
@@ -660,7 +368,7 @@ class SettingsModuleSettingsProcessor:
             name = target.id
             self.seen_settings.add(name)
             if name == "ADDONS":
-                self.process_addons(assignment)
+                yield from self.process_addons(assignment)
             yield from self.process_setting(name, assignment)
 
     def resolve_import_path(self, node) -> str:
@@ -671,11 +379,12 @@ class SettingsModuleSettingsProcessor:
         base = self.resolve_import_path(node.value)
         return f"{base}.{node.attr}"
 
-    def process_addons(self, assignment: Assign) -> None:
+    def process_addons(self, assignment: Assign) -> Generator[Issue]:
         if not is_dict(assignment.value):
             return
         assert isinstance(assignment.value, (Call, Dict))
-        for key, _ in iter_dict(assignment.value):
+        entries: list[AddonEntry] = []
+        for key, value in iter_dict(assignment.value):
             import_path = None
             if (
                 isinstance(key, Name)
@@ -689,34 +398,78 @@ class SettingsModuleSettingsProcessor:
                 import_path = self.resolve_import_path(key)
             if import_path not in ADDONS:
                 continue
-            addon_settings = ADDONS[import_path].get_settings(self.context.project)
-            self.addon_settings |= addon_settings
+            addon = ADDONS[import_path]
+            for setting, setting_value in addon.get_settings(
+                self.context.project
+            ).items():
+                self.add_addon_setting(setting, setting_value, addon.package)
+            priority, is_literal = extract_literal_value(value)
+            # A non-literal priority cannot be compared, and None disables the
+            # add-on.
+            if is_literal and isinstance(priority, (int, float)):
+                entries.append((addon, import_path, priority, value))
+        yield from self.check_addon_order(entries)
+
+    def add_addon_setting(self, name: str, value: Any, package: str) -> None:
+        """Record that the add-on from *package* sets *name* to *value*.
+
+        When add-ons disagree about the value, the resulting one is unknown:
+        add-ons are probed in isolation, so what they do together, e.g. which
+        entries they each add to a component priority dict, is not known.
+        """
+        if name in self.addon_settings:
+            known_value, package = self.addon_settings[name]
+            if known_value != value:
+                value = UNKNOWN_SETTING_VALUE
+        self.addon_settings[name] = (value, package)
+
+    @staticmethod
+    def check_addon_order(entries: list[AddonEntry]) -> Generator[Issue]:
+        """Report add-ons that run before an add-on they must run after.
+
+        Scrapy sorts add-ons by priority value with a stable sort, so add-ons
+        sharing a priority value run in definition order.
+        """
+        ranks = {
+            addon.package: (priority, index)
+            for index, (addon, _, priority, _node) in enumerate(entries)
+        }
+        paths = {addon.package: import_path for addon, import_path, _, _node in entries}
+        for index, (addon, import_path, priority, node) in enumerate(entries):
+            for package in sorted(addon.after):
+                if package not in ranks or (priority, index) > ranks[package]:
+                    continue
+                yield Issue(
+                    WRONG_ADDON_ORDER,
+                    Pos.from_node(node),
+                    detail=f"{import_path} must run after {paths[package]}",
+                )
 
     def process_setting(self, name: str, assignment: Assign) -> Generator[Issue]:
         if name == "ROBOTSTXT_OBEY":
             self.process_robotstxt(assignment)
-        self.check_redundant_values(name, assignment)
+        elif name in SESSION_SETTINGS:
+            self.process_session(name, assignment)
+        self.record_setting_value(name, assignment)
         yield from self.check_throttling(name, assignment)
         yield from self.setting_checker.check_value(name, assignment.value)
 
-    def check_redundant_values(self, name: str, assignment: Assign) -> None:
+    def record_setting_value(self, name: str, assignment: Assign) -> None:
+        """Record the value of *name* for a later comparison against its
+        effective default, which add-ons can only be known to change once the
+        entire settings module has been read."""
         if name not in SETTINGS:
-            return
-        setting_info = SETTINGS[name]
-        default_value = setting_info.get_default_value(self.context.project)
-        if default_value is UNKNOWN_SETTING_VALUE:
             return
         setting_value, is_literal = extract_literal_value(assignment.value)
         if not is_literal:
             return
         try:
-            parsed_value = setting_info.parse(setting_value)
+            parsed_value = SETTINGS[name].parse(setting_value)
         except (ValueError, TypeError):
             return
-        if parsed_value == default_value:
-            self.redundant_values.append(
-                (name, assignment.value.lineno, assignment.value.col_offset),
-            )
+        self.setting_values.append(
+            (name, parsed_value, assignment.value.lineno, assignment.value.col_offset),
+        )
 
     def check_throttling(self, name: str, assignment: Assign) -> Generator[Issue]:
         if name not in {"CONCURRENT_REQUESTS_PER_DOMAIN", "DOWNLOAD_DELAY"}:
@@ -731,6 +484,25 @@ class SettingsModuleSettingsProcessor:
         ):
             pos = Pos.from_node(assignment.value)
             yield Issue(LOW_PROJECT_THROTTLING, pos)
+
+    def process_session(self, name: str, assignment: Assign) -> None:
+        if name == "ZYTE_API_SESSION_ENABLED":
+            if isinstance(assignment.value, Constant):
+                with suppress(ValueError):
+                    self.session_enabled = getbool(assignment.value.value)
+        elif name == "ZYTE_API_SESSION_POOL_SIZE":
+            self.session_pool_sizes.append(assignment.value)
+        elif is_dict(assignment.value):
+            assert isinstance(assignment.value, (Call, Dict))
+            for _, pool in iter_dict(assignment.value):
+                if not is_dict(pool):
+                    continue
+                assert isinstance(pool, (Call, Dict))
+                self.session_pool_sizes.extend(
+                    value
+                    for key, value in iter_dict(pool)
+                    if isinstance(key, Constant) and key.value == "size"
+                )
 
     def process_robotstxt(self, child: Assign) -> None:
         value = True
@@ -749,6 +521,7 @@ class SettingsModuleSettingsProcessor:
         yield from self.validate_user_agent()
         yield from self.validate_robotstxt()
         yield from self.validate_throttling()
+        yield from self.validate_session_rotation()
         yield from self.validate_missing_changing_settings()
         yield from self.validate_redundant_values()
 
@@ -772,6 +545,21 @@ class SettingsModuleSettingsProcessor:
             )
         ):
             yield Issue(INCOMPLETE_PROJECT_THROTTLING)
+
+    def validate_session_rotation(self) -> Generator[Issue]:
+        if not self.session_enabled:
+            return
+        if "ZYTE_API_SESSION_POOL_SIZE" not in self.seen_settings:
+            yield Issue(SESSION_ROTATION)
+        for node in self.session_pool_sizes:
+            if not isinstance(node, Constant) or not isinstance(node.value, (int, str)):
+                continue
+            try:
+                size = int(node.value)
+            except ValueError:
+                continue
+            if size != 1:
+                yield Issue(SESSION_ROTATION, Pos.from_node(node))
 
     def validate_missing_changing_settings(self) -> Generator[Issue]:
         for name, setting in SETTINGS.items():
@@ -815,17 +603,26 @@ class SettingsModuleSettingsProcessor:
             yield issue
 
     def validate_redundant_values(self) -> Generator[Issue]:
-        for name, line, column in self.redundant_values:
+        for name, value, line, column in self.setting_values:
+            default, detail = self.get_effective_default(name)
+            if default is UNKNOWN_SETTING_VALUE or value != default:
+                continue
             if self.is_changing_setting(name):
                 continue
-            yield Issue(REDUNDANT_SETTING_VALUE, Pos(line, column))
+            yield Issue(REDUNDANT_SETTING_VALUE, Pos(line, column), detail=detail)
+
+    def get_effective_default(self, name: str) -> tuple[Any, str | None]:
+        """Return the value *name* has when the settings module does not set
+        it, and a detail string when an add-on is what sets it."""
+        if name in self.addon_settings:
+            value, package = self.addon_settings[name]
+            return value, f"already set by the {package} add-on"
+        return SETTINGS[name].get_default_value(self.context.project), None
 
     def is_changing_setting(self, name: str) -> bool:
-        assert name in SETTINGS
         setting = SETTINGS[name]
         default = setting.default_value
-        assert not isinstance(default, UnknownSettingValue)
-        if not default or not default.history:
+        if isinstance(default, UnknownSettingValue) or not default.history:
             return False
         history = default.history
         assert len(history) == MAX_DEFAULT_VALUE_HISTORY
