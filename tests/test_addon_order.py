@@ -51,12 +51,12 @@ CASES: Cases = tuple(
         (
             f'ADDONS = {{"{DUD}": 200, "{ZYTE_API}": 100}}',
             (),
-            None,
+            ExpectedIssue("SCP60 unsorted priority dict", column=9, path=PATH),
         ),
         (
             f'ADDONS = {{"{ZYTE_API}": 200, "{DUD}": 100}}',
             ((DUD, ZYTE_API),),
-            None,
+            ExpectedIssue("SCP60 unsorted priority dict", column=9, path=PATH),
         ),
         # Scrapy sorts add-ons with a stable sort, so add-ons sharing a
         # priority value run in definition order.
@@ -90,7 +90,7 @@ CASES: Cases = tuple(
         (
             f'ADDONS = {{"{DUD}": 100, "unknown.Addon": 50}}',
             (),
-            None,
+            ExpectedIssue("SCP60 unsorted priority dict", column=9, path=PATH),
         ),
         # A None value disables the add-on, and a value that is not a literal
         # number cannot be compared.

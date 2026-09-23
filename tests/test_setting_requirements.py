@@ -188,7 +188,7 @@ CASES: Cases = (
                                 # Based component priority dict
                                 (
                                     "DOWNLOADER_MIDDLEWARES",
-                                    '{Foo: 0, "scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware": None}',
+                                    '{"scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware": None, Foo: 0}',
                                 ),
                             )
                         ),
