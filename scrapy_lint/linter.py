@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 import warnings
 from ast import NodeVisitor
 from dataclasses import dataclass, field
@@ -20,13 +21,17 @@ from .finders.dockerfile import find_dockerfile_issues
 from .finders.domains import (
     UnreachableDomainIssueFinder,
     UrlInAllowedDomainsIssueFinder,
+    find_no_allowed_domains_issues,
 )
 from .finders.imports import ImportIssueFinder
 from .finders.items import DocumentationCommentIssueFinder
+from .finders.loggers import SpiderLoggerIssueFinder
 from .finders.methods import DeprecatedArgumentIssueFinder
 from .finders.oldstyle import (
+    ExtractIssueFinder,
     OldSelectorIssueFinder,
-    find_extract_then_index_issues,
+    UrlparseIssueFinder,
+    find_absolute_nested_xpath_issues,
     find_get_first_by_index_issues,
     find_url_join_issues,
 )
@@ -49,6 +54,41 @@ if TYPE_CHECKING:
     from .issues import Issue
 
 
+_IGNORE_COMMENT = re.compile(
+    r"#\s*scrapy-lint:\s*ignore(?P<codes>\[[^]]*\])?",
+    re.IGNORECASE,
+)
+_IGNORE_COMMENT_CODE = re.compile(r"SCP(\d+)", re.IGNORECASE)
+
+
+def _parse_ignore_comments(file: Path) -> dict[int, set[int] | None]:
+    """Return, for every line of *file* with an ignore comment, the codes that
+    the comment ignores, or ``None`` if it ignores every code."""
+    ignores: dict[int, set[int] | None] = {}
+    source = file.read_text(encoding="utf-8")
+    for index, line in enumerate(source.splitlines(), start=1):
+        match = _IGNORE_COMMENT.search(line)
+        if not match:
+            continue
+        codes = match.group("codes")
+        ignores[index] = (
+            None
+            if codes is None
+            else {int(code) for code in _IGNORE_COMMENT_CODE.findall(codes)}
+        )
+    return ignores
+
+
+def _is_ignored_by_comment(
+    issue: Issue,
+    ignore_comments: dict[int, set[int] | None],
+) -> bool:
+    if issue.line not in ignore_comments:
+        return False
+    codes = ignore_comments[issue.line]
+    return codes is None or issue.code in codes
+
+
 class IssueFinder(Protocol):  # pylint: disable=too-few-public-methods
     def __call__(self, node: ast.AST) -> Generator[Issue]: ...
 
@@ -59,6 +99,7 @@ class PythonIssueFinder(NodeVisitor):
         context: Context,
         setting_checker: SettingChecker,
         source: str,
+        tree: ast.Module,
     ):
         super().__init__()
         self.issues: list[Issue] = []
@@ -66,7 +107,9 @@ class PythonIssueFinder(NodeVisitor):
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
-        import_issue_finder = ImportIssueFinder(setting_checker.project)
+        extract_issue_finder = ExtractIssueFinder()
+        spider_logger_issue_finder = SpiderLoggerIssueFinder()
+        import_issue_finder = ImportIssueFinder(setting_checker.project, source)
 
         self.finders: dict[str, Sequence[IssueFinder]] = {
             "Assign": [
@@ -75,22 +118,28 @@ class PythonIssueFinder(NodeVisitor):
                 setting_issue_finder,
                 domain_issue_finder,
                 UrlInAllowedDomainsIssueFinder(source),
+                spider_logger_issue_finder,
             ],
             "AugAssign": [
                 setting_issue_finder,
             ],
             "Call": [
+                extract_issue_finder,
+                find_absolute_nested_xpath_issues,
                 find_get_first_by_index_issues,
                 lambda_callback_issue_finder,
                 api_issue_finder,
                 RequestIssueFinder(),
                 setting_issue_finder,
                 find_url_join_issues,
+                UrlparseIssueFinder(tree, source),
             ],
             "ClassDef": [
                 api_issue_finder,
                 domain_issue_finder,
+                find_no_allowed_domains_issues,
                 StartUrlIssueFinder(source),
+                spider_logger_issue_finder,
                 UnneededStartIssueFinder(source),
                 SpiderAttributeIssueFinder(context),
                 DeprecatedArgumentIssueFinder(context),
@@ -109,7 +158,7 @@ class PythonIssueFinder(NodeVisitor):
                 import_issue_finder,
             ],
             "Subscript": [
-                find_extract_then_index_issues,
+                extract_issue_finder,
                 setting_issue_finder,
             ],
         }
@@ -206,8 +255,13 @@ class Linter:
         for file in self.files:
             absolute_file = file.resolve()
             relative_file = absolute_file.relative_to(self.project.path)
+            ignore_comments: dict[int, set[int] | None] | None = None
             for issue in self.lint_file(absolute_file):
                 if self.is_ignored(issue, relative_file):
+                    continue
+                if ignore_comments is None:
+                    ignore_comments = _parse_ignore_comments(absolute_file)
+                if _is_ignored_by_comment(issue, ignore_comments):
                     continue
                 issue.file = relative_file
                 yield issue
@@ -228,7 +282,10 @@ class Linter:
             new_source, applied = apply_edits(source, edits)
             if applied:
                 file.write_text(new_source, encoding="utf-8")
-            result.fixed_count += applied
+            result.fixed_count += sum(
+                all(edit in applied for edit in issue.fix.edits)  # type: ignore[union-attr]
+                for issue in issues
+            )
         return result
 
     def is_ignored(self, issue: Issue, file: Path) -> bool:
@@ -264,6 +321,7 @@ class Linter:
                 tree = ast.parse(source, filename=str(file))
             except SyntaxError as e:
                 raise InputFileError(str(e), file) from None
+        self.setting_checker.source = source
         setting_module_finder = SettingModuleIssueFinder(
             self.context,
             file,
@@ -271,6 +329,6 @@ class Linter:
         )
         if file in self.context.project.setting_module_paths:
             yield from setting_module_finder.check(tree)
-        finder = PythonIssueFinder(self.context, self.setting_checker, source)
+        finder = PythonIssueFinder(self.context, self.setting_checker, source, tree)
         finder.visit(tree)
         yield from finder.issues

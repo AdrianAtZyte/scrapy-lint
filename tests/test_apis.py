@@ -48,6 +48,24 @@ FROM_RESPONSE_DISCOURAGED = (
     f"SCP77 discouraged API: {FROM_RESPONSE}, to be deprecated in scrapy "
     f"{FROM_RESPONSE_DEPRECATED_IN}; {FROM_RESPONSE_GUIDANCE}"
 )
+LOG = "log method of scrapy.Spider"
+LOG_DEPRECATED_IN = Version("2.18.0")
+LOG_GUIDANCE = "use the methods of Spider.logger instead"
+LOG_DEPRECATED = (
+    f"SCP74 deprecated API: {LOG}, deprecated in scrapy {LOG_DEPRECATED_IN}; "
+    f"{LOG_GUIDANCE}"
+)
+LOG_DISCOURAGED = (
+    f"SCP77 discouraged API: {LOG}, to be deprecated in scrapy "
+    f"{LOG_DEPRECATED_IN}; {LOG_GUIDANCE}"
+)
+SPIDER_METHOD = cleandoc(
+    """
+    class MySpider({base}):
+        def parse(self, response):
+            {statement}
+    """,
+)
 COMMAND = cleandoc(
     """
     class Command(ScrapyCommand):
@@ -320,6 +338,52 @@ CASES: Cases = (
                     "Foo.from_response(response)",
                     "from_response(response)",
                     "FormRequest(url)",
+                )
+            ),
+            # Methods called on self, in subclasses of their class.
+            *(
+                (
+                    version,
+                    SPIDER_METHOD.format(base=base, statement=statement),
+                    ExpectedIssue(message, line=3, column=column, path=PATH),
+                )
+                for version, message in (
+                    (LATEST, LOG_DEPRECATED),
+                    (BEFORE_START_REMOVAL, LOG_DISCOURAGED),
+                )
+                for base, statement, column in (
+                    ("Spider", 'self.log("a")', 8),
+                    ("scrapy.Spider", 'self.log("a", level=logging.INFO)', 8),
+                    ("CrawlSpider", 'self.log("a")', 8),
+                    ("ProjectSpider", 'return self.log("a")', 15),
+                    ("Spider", 'callback = lambda: self.log("a")', 27),
+                )
+            ),
+            (
+                LATEST,
+                SPIDER_METHOD.format(
+                    base="Spider",
+                    statement="yield from self.start_requests()",
+                ),
+                ExpectedIssue(
+                    f"SCP75 removed API: start_requests method of {SPIDER}, "
+                    f"deprecated in scrapy 2.13.0, removed in 2.16.0; {START}",
+                    line=3,
+                    column=19,
+                    path=PATH,
+                ),
+            ),
+            # Methods called on self (no issue)
+            *(
+                (LATEST, SPIDER_METHOD.format(base=base, statement=statement), NO_ISSUE)
+                for base, statement in (
+                    ("object", 'self.log("a")'),
+                    ("SpiderMiddleware", 'self.log("a")'),
+                    ("Spider", 'log("a")'),
+                    ("Spider", 'spider.log("a")'),
+                    ("Spider", 'self.logger.debug("a")'),
+                    # A call on self cannot be matched to an interface.
+                    ("object", "self.process_start_requests(None)"),
                 )
             ),
             # From the deprecation version on, the same uses become SCP74.

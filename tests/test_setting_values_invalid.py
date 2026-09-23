@@ -85,6 +85,13 @@ CASES: Cases = (
                                 )
                             ),
                             *(
+                                ("SCP60 unsorted priority dict", setting, value, 0)
+                                for setting, value in (
+                                    ("DOWNLOADER_MIDDLEWARES", "{Foo: 200, Bar: 100}"),
+                                    ("DOWNLOADER_MIDDLEWARES", "{Foo: 100, Bar: None}"),
+                                )
+                            ),
+                            *(
                                 (
                                     f"SCP36 invalid setting value: {detail}",
                                     setting,

@@ -2,7 +2,19 @@ from __future__ import annotations
 
 import json
 import re
-from ast import Call, Constant, Dict, Lambda, List, Set, Tuple, expr
+from ast import (
+    Attribute,
+    Call,
+    Constant,
+    Dict,
+    Lambda,
+    List,
+    Name,
+    Set,
+    Tuple,
+    expr,
+    get_source_segment,
+)
 from collections.abc import Generator, Iterable
 from functools import partial
 from typing import TYPE_CHECKING, Protocol
@@ -11,12 +23,18 @@ from urllib.parse import urlsplit
 from packaging.version import Version
 
 from scrapy_lint.ast import is_dict, iter_dict
+from scrapy_lint.data.addons import ADDONS
+from scrapy_lint.data.settings import SETTINGS
+from scrapy_lint.fixes import Edit, Fix, source_range
 from scrapy_lint.issues import (
     IMPROPER_SETTING_VALUE,
     INVALID_SETTING_VALUE,
+    MISSING_COMPONENT_REQUIREMENT,
     UNIMPORTABLE_COMPONENT,
     UNNEEDED_IMPORT_PATH,
     UNNEEDED_PATH_STRING,
+    UNSORTED_PRIORITY_DICT,
+    UNSUPPORTED_CLASS_OBJECT,
     UNSUPPORTED_PATH_OBJECT,
     Issue,
     Pos,
@@ -26,6 +44,16 @@ from scrapy_lint.versions import UNKNOWN_UNSUPPORTED_VERSION, UnknownUnsupported
 
 if TYPE_CHECKING:
     from scrapy_lint.context import Project
+
+# Packages that a component may come from. An import path whose top-level
+# module, with underscores replaced by hyphens, matches none of them may come
+# from the project itself, so it is not checked against project requirements.
+KNOWN_PACKAGES = {setting.package for setting in SETTINGS.values()} | {
+    addon.package for addon in ADDONS.values()
+}
+
+
+OBJ_SUPPORT_VERSION = Version("2.4.0")
 
 
 JSON_DICT_DETAIL = "use a dict instead of a JSON string, whose contents are not checked"
@@ -40,6 +68,13 @@ def check_component_path(
     allowed: set[str] | None = None,
 ) -> Generator[Issue]:
     assert isinstance(node.value, str)
+    package = node.value.split(".", 1)[0].replace("_", "-")
+    if (
+        package in KNOWN_PACKAGES
+        and project.packages
+        and package not in project.packages
+    ):
+        yield Issue(MISSING_COMPONENT_REQUIREMENT, Pos.from_node(node), package)
     yield from check_import_path_need(node, project, allowed)
     if project.is_missing_import_path(node.value):
         yield Issue(UNIMPORTABLE_COMPONENT, Pos.from_node(node))
@@ -51,11 +86,37 @@ def check_import_path_need(
     allowed: set[str] | None,
 ) -> Generator[Issue]:
     frozen_version = project.frozen_requirements.get("scrapy")
-    if not frozen_version or frozen_version < Version("2.4.0"):
+    if not frozen_version or frozen_version < OBJ_SUPPORT_VERSION:
         return
     allowed = allowed or set()
     if node.value not in allowed:
         yield Issue(UNNEEDED_IMPORT_PATH, Pos.from_node(node))
+
+
+def is_class_obj(node: expr) -> bool:
+    """Return whether *node* is a reference to a class.
+
+    Since a reference could also be a variable holding an import path, the
+    decision is based on the name following the class naming convention, i.e.
+    starting with an uppercase letter and containing a lowercase one.
+    """
+    if isinstance(node, Name):
+        name = node.id
+    elif isinstance(node, Attribute):
+        name = node.attr
+    else:
+        return False
+    return name[0].isupper() and not name.isupper()
+
+
+def check_class_obj_support(node: expr, project: Project) -> Generator[Issue]:
+    frozen_version = project.frozen_requirements.get("scrapy")
+    if not frozen_version or frozen_version >= OBJ_SUPPORT_VERSION:
+        return
+    if not is_class_obj(node):
+        return
+    detail = f"requires Scrapy {OBJ_SUPPORT_VERSION}+"
+    yield Issue(UNSUPPORTED_CLASS_OBJECT, Pos.from_node(node), detail)
 
 
 def has_feed_uri_params(value: str) -> bool:
@@ -325,6 +386,7 @@ class TypeChecker(Protocol):  # pylint: disable=too-few-public-methods
         *,
         setting: Setting,
         project: Project,
+        source: str | None,
     ) -> Generator[Issue]: ...
 
 
@@ -352,17 +414,82 @@ def check_import_path(node: Constant, project: Project) -> Generator[Issue]:
     yield from check_component_path(node, project)
 
 
+def priority_sort_key(priority: int | None) -> tuple[bool, int]:
+    """Return the sort key of a component priority dict entry with the given
+    *priority*.
+
+    ``None`` disables a component, so it has no priority to sort by and goes
+    first.
+    """
+    return (priority is not None, priority or 0)
+
+
+def entry_span(key: expr, value: expr) -> tuple[Pos, Pos]:
+    assert value.end_lineno is not None
+    assert value.end_col_offset is not None
+    return Pos.from_node(key), Pos(value.end_lineno, value.end_col_offset)
+
+
+def build_sort_fix(
+    node: Call | Dict,
+    entries: list[tuple[expr, expr]],
+    order: list[int],
+    source: str | None,
+) -> Fix | None:
+    """Build a fix that rewrites the entries of *node* in *order*, keeping the
+    separators between them, and hence the original layout, untouched.
+
+    Returns ``None`` (report only, no fix) if the dict contains a comment, which
+    would stay in place while the entry it documents moves elsewhere.
+    """
+    if source is None:
+        return None
+    segment = get_source_segment(source, node)
+    if segment is None or "#" in segment:
+        return None
+    spans = [entry_span(key, value) for key, value in entries]
+    parts = [source_range(source, *spans[order[0]])]
+    for position, index in enumerate(order[1:], start=1):
+        parts.append(source_range(source, spans[position - 1][1], spans[position][0]))
+        parts.append(source_range(source, *spans[index]))
+    edit = Edit(start=spans[0][0], end=spans[-1][1], replacement="".join(parts))
+    return Fix([edit], message="sort entries by priority")
+
+
+def check_prio_order(node: Call | Dict, source: str | None) -> Generator[Issue]:
+    entries: list[tuple[expr, expr]] = []
+    priorities: list[int | None] = []
+    for key, value in iter_dict(node):
+        if not isinstance(value, Constant):
+            return
+        priority = value.value
+        if priority is not None and not isinstance(priority, int):
+            return
+        entries.append((key, value))
+        priorities.append(priority)
+    order = sorted(
+        range(len(entries)),
+        key=lambda index: priority_sort_key(priorities[index]),
+    )
+    if order == list(range(len(entries))):
+        return
+    fix = build_sort_fix(node, entries, order, source)
+    yield Issue(UNSORTED_PRIORITY_DICT, Pos.from_node(node), fix=fix)
+
+
 def check_based_comp_prio(
     node: expr,
     *,
     setting: Setting,
     project: Project,
+    source: str | None,
     **_,
 ) -> Generator[Issue]:
     yield from check_getwithbase_compatible(node)
     if not is_dict(node):
         return
     assert isinstance(node, (Call, Dict))
+    yield from check_prio_order(node, source)
     for key, value in iter_dict(node):
         if isinstance(key, Constant):
             if not isinstance(key.value, str):
@@ -379,6 +506,8 @@ def check_based_comp_prio(
                     else None
                 )
                 yield from check_component_path(key, project, base_import_paths)
+        else:
+            yield from check_class_obj_support(key, project)
         if isinstance(value, (Dict, Lambda, List, Set, Tuple)):
             detail = "dict values must be integers or None"
             yield Issue(INVALID_SETTING_VALUE, Pos.from_node(value), detail)
@@ -414,13 +543,21 @@ def check_based_obj_dict(node: expr, *, project: Project, **_) -> Generator[Issu
                 yield Issue(INVALID_SETTING_VALUE, Pos.from_node(value), detail)
             else:
                 yield from check_component_path(value, project)
+        else:
+            yield from check_class_obj_support(value, project)
 
 
-def check_comp_prio(node: expr, project: Project, **_) -> Generator[Issue]:
+def check_comp_prio(
+    node: expr,
+    project: Project,
+    source: str | None,
+    **_,
+) -> Generator[Issue]:
     yield from check_getdict_compatible(node)
     if not is_dict(node):
         return
     assert isinstance(node, (Call, Dict))
+    yield from check_prio_order(node, source)
     for key, value in iter_dict(node):
         if isinstance(key, Constant):
             component = key.value
@@ -444,6 +581,7 @@ def check_obj(
     node: expr,
     *,
     allow_none: bool = False,
+    expects_class: bool = True,
     project: Project,
     **_,
 ) -> Generator[Issue]:
@@ -452,6 +590,8 @@ def check_obj(
         yield issue
         return
     if not isinstance(node, Constant):
+        if expects_class:
+            yield from check_class_obj_support(node, project)
         return
     if node.value is None:
         if not allow_none:
@@ -609,6 +749,7 @@ TYPE_CHECKERS: dict[SettingType, TypeChecker] = {
     SettingType.COMP_PRIO_DICT: check_comp_prio,
     SettingType.DICT: check_getdict_compatible,
     SettingType.OBJ: check_obj,
+    SettingType.OPT_CALLABLE: partial(check_obj, allow_none=True, expects_class=False),
     SettingType.OPT_OBJ: partial(check_obj, allow_none=True),
     SettingType.OPT_PATH: check_opt_path,
     SettingType.PERIODIC_LOG_CONFIG: check_periodic_log_config,

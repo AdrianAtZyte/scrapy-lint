@@ -3,12 +3,15 @@ from inspect import cleandoc
 from packaging.utils import canonicalize_name
 from packaging.version import Version
 
-from scrapy_lint.data.packages import PACKAGES
+from scrapy_lint.data.packages import PACKAGES, VERSION_CONFLICTS
+from scrapy_lint.data.stacks import LATEST_STACK_SCRAPY_VERSION
 from scrapy_lint.finders.requirements import RequirementsIssueFinder
+from scrapy_lint.packages import VersionConflict
 
 from . import NO_ISSUE, Cases, ExpectedIssue, File, cases
 from .helpers import check_project
 
+LATEST_KNOWN_STACK = f"scrapy:{LATEST_STACK_SCRAPY_VERSION}-20250721"
 SCRAPY_FUTURE_VERSION = Version("3.0.0")
 SCRAPY_HIGHEST_KNOWN = PACKAGES["scrapy"].highest_known_version
 SCRAPY_LOWEST_SAFE = PACKAGES["scrapy"].lowest_safe_version
@@ -17,6 +20,20 @@ SCRAPY_LOWEST_SUPPORTED = PACKAGES["scrapy"].lowest_supported_version
 SCRAPY_ANCIENT_VERSION = Version("2.0.0")
 ENTRYPOINT_BROKEN = "scrapinghub-entrypoint-scrapy==0.14.0"
 ENTRYPOINT_FIXED = "scrapinghub-entrypoint-scrapy==0.14.1"
+
+CONFLICTS_BY_DEPENDENCY: dict[str, list[VersionConflict]] = {}
+for _conflict in VERSION_CONFLICTS:
+    if _conflict.dependency == "scrapinghub-entrypoint-scrapy":
+        continue
+    CONFLICTS_BY_DEPENDENCY.setdefault(_conflict.dependency, []).append(_conflict)
+
+
+def lowest_supported(dependency: str) -> Version:
+    package = PACKAGES.get(dependency)
+    if package is None or package.lowest_supported_version is None:
+        return Version("0")
+    return package.lowest_supported_version
+
 
 ALL_DEPS = "\n".join(
     [
@@ -39,8 +56,8 @@ ALL_DEPS = "\n".join(
         "scrapy-pagestorage==0.2.3",
         "scrapy-querycleaner==0.1.0",
         "scrapy-splitvariants==0.1.0",
-        "scrapy-zyte-smartproxy==2.1.0",
-        "spidermon==1.20.0",
+        "scrapy-zyte-smartproxy==2.4.1",
+        "spidermon==1.27.0",
         "twisted==23.8.0",
         "urllib3==2.0.4",
         "cryptography==41.0.4",
@@ -170,8 +187,8 @@ CASES: Cases = (
                 File("", path="scrapy.cfg"),
                 File(
                     cleandoc(
-                        """
-                        stack: scrapy:2.13-20250721
+                        f"""
+                        stack: {LATEST_KNOWN_STACK}
                         requirements:
                           file: requirements.txt
                         """
@@ -418,6 +435,51 @@ CASES: Cases = (
                     (("scrapy>=2.11.0", ENTRYPOINT_BROKEN), 1, False, 0),
                     ((f"scrapy=={SCRAPY_HIGHEST_KNOWN}",), 1, False, 0),
                     ((ENTRYPOINT_BROKEN,), 1, False, 0),
+                )
+            ),
+            # SCP76 incompatible requirement, every other known conflict
+            *(
+                (
+                    f"scrapy=={SCRAPY_HIGHEST_KNOWN}\n{dependency}=={dependency_version}",
+                    (
+                        *(
+                            (
+                                ExpectedIssue(
+                                    "SCP14 unsupported requirement: scrapy-lint "
+                                    f"only supports {dependency} "
+                                    f"{lowest_supported}+",
+                                    line=2,
+                                    path=path,
+                                ),
+                            )
+                            if lowest_supported
+                            and dependency_version < lowest_supported
+                            else ()
+                        ),
+                        *(
+                            (
+                                ExpectedIssue(
+                                    "SCP76 incompatible requirement: "
+                                    f"{conflict.package} {conflict.since}+ "
+                                    f"requires {conflict.dependency} "
+                                    f"{conflict.lowest_compatible}+",
+                                    line=2,
+                                    path=path,
+                                )
+                                for conflict in conflicts
+                            )
+                            if broken
+                            else ()
+                        ),
+                    ),
+                )
+                for dependency, conflicts in CONFLICTS_BY_DEPENDENCY.items()
+                for lowest_supported in (
+                    getattr(PACKAGES.get(dependency), "lowest_supported_version", None),
+                )
+                for dependency_version, broken in (
+                    (Version("0"), True),
+                    (max(c.lowest_compatible for c in conflicts), False),
                 )
             ),
         )
