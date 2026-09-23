@@ -1,5 +1,10 @@
 from collections.abc import Sequence
 
+from packaging.version import Version
+
+from scrapy_lint.data.packages import PACKAGES
+from scrapy_lint.data.stacks import LATEST_STACK_SCRAPY_VERSION
+
 from . import NO_ISSUE, ExpectedIssue, ExpectedIssues, File, cases, iter_issues
 from .helpers import check_project
 
@@ -8,8 +13,20 @@ def issue(message, path="scrapinghub.yml", **kwargs):
     return ExpectedIssue(message, path=path, **kwargs)
 
 
-LATEST_KNOWN_STACK_TAG = "2.12-20241202"
+def is_insecure(requirement):
+    lowest_safe = PACKAGES["scrapy"].lowest_safe_version
+    assert lowest_safe is not None
+    return (
+        requirement.startswith("==")
+        and Version(requirement.removeprefix("==")) < lowest_safe
+    )
+
+
+LATEST_KNOWN_STACK_TAG = f"{LATEST_STACK_SCRAPY_VERSION}-20241202"
 LATEST_KNOWN_STACK = f"scrapy:{LATEST_KNOWN_STACK_TAG}"
+NEWER_THAN_LATEST_STACK_SCRAPY_VERSION = (
+    f"{LATEST_STACK_SCRAPY_VERSION.major}.{LATEST_STACK_SCRAPY_VERSION.minor + 1}.0"
+)
 STACK_IMAGE = "scrapinghub/scrapinghub-stack-scrapy"
 MISSING_STACK_ISSUE = ExpectedIssue(
     message="SCP24 missing stack requirements: aiohttp, "
@@ -19,6 +36,13 @@ MISSING_STACK_ISSUE = ExpectedIssue(
     "scrapy-pagestorage, scrapy-querycleaner, "
     "scrapy-splitvariants, scrapy-zyte-smartproxy, spidermon, "
     "urllib3",
+    path="requirements.txt",
+)
+
+
+INSECURE_SCRAPY_ISSUE = ExpectedIssue(
+    message="SCP15 insecure requirement: scrapy "
+    f"{PACKAGES['scrapy'].lowest_safe_version} implements security fixes",
     path="requirements.txt",
 )
 
@@ -580,6 +604,78 @@ CASES = [
             ),
         ),
         {"requirements_file": "requirements-dev.txt"},
+    ),
+    # SCP72 Scrapy version mismatch
+    *(
+        (
+            (
+                File(
+                    "\n".join(
+                        [
+                            f"stack: {stack}",
+                            "requirements:",
+                            "  file: requirements.txt",
+                        ],
+                    ),
+                    "scrapinghub.yml",
+                ),
+                File("", "scrapy.cfg"),
+                File(f"scrapy{requirement}\n", "requirements.txt"),
+            ),
+            (
+                *default_issues(),
+                MISSING_STACK_ISSUE,
+                *([INSECURE_SCRAPY_ISSUE] if is_insecure(requirement) else []),
+                *iter_issues(issues),
+            ),
+            {},
+        )
+        for stack, requirement, issues in (
+            (
+                LATEST_KNOWN_STACK,
+                "==2.11.2",
+                issue(
+                    "SCP72 Scrapy version mismatch: "
+                    f"{LATEST_KNOWN_STACK} comes with Scrapy "
+                    f"{LATEST_STACK_SCRAPY_VERSION}, not 2.11.2",
+                    column=7,
+                ),
+            ),
+            (
+                "scrapy:2.12",
+                "==2.11.2",
+                (
+                    issue("SCP20 stack not frozen", column=7),
+                    issue(
+                        "SCP72 Scrapy version mismatch: "
+                        "scrapy:2.12 comes with Scrapy 2.12, not 2.11.2",
+                        column=7,
+                    ),
+                ),
+            ),
+            (
+                "scrapy:2.11-20241022",
+                "==2.13.0",
+                issue(
+                    "SCP72 Scrapy version mismatch: "
+                    "scrapy:2.11-20241022 comes with Scrapy 2.11, not 2.13.0",
+                    column=7,
+                ),
+            ),
+            # A different patch version is fine.
+            ("scrapy:2.11-20241022", "==2.11.1", NO_ISSUE),
+            ("scrapy:2.11-20241022", "==2.11", NO_ISSUE),
+            # A Scrapy version newer than that of the newest stack is fine.
+            (
+                LATEST_KNOWN_STACK,
+                f"=={NEWER_THAN_LATEST_STACK_SCRAPY_VERSION}",
+                NO_ISSUE,
+            ),
+            # Without a frozen version, or a version in the stack, there is
+            # nothing to compare.
+            (LATEST_KNOWN_STACK, ">=2.11.2", NO_ISSUE),
+            ("scrapy:latest", "==2.11.2", issue("SCP20 stack not frozen", column=7)),
+        )
     ),
     # Dockerfile
     *(

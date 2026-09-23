@@ -117,6 +117,7 @@ class SettingChecker:
         self.additional_known_settings = set(context.options.get("known-settings", []))
         self.in_update_pre_crawler_settings = False
         self.in_update_settings = False
+        self.source: str | None = None
 
     def is_known_setting(self, name: str) -> bool:
         return name in SETTINGS or name in self.additional_known_settings
@@ -409,4 +410,5 @@ class SettingChecker:
                 setting=setting,
                 project=self.project,
                 imports=imports or {},
+                source=self.source,
             )
