@@ -29,6 +29,7 @@ from .finders.loggers import SpiderLoggerIssueFinder
 from .finders.methods import DeprecatedArgumentIssueFinder
 from .finders.oldstyle import (
     OldSelectorIssueFinder,
+    UrlparseIssueFinder,
     find_extract_then_index_issues,
     find_get_first_by_index_issues,
     find_url_join_issues,
@@ -97,6 +98,7 @@ class PythonIssueFinder(NodeVisitor):
         context: Context,
         setting_checker: SettingChecker,
         source: str,
+        tree: ast.Module,
     ):
         super().__init__()
         self.issues: list[Issue] = []
@@ -126,6 +128,7 @@ class PythonIssueFinder(NodeVisitor):
                 RequestIssueFinder(),
                 setting_issue_finder,
                 find_url_join_issues,
+                UrlparseIssueFinder(tree, source),
             ],
             "ClassDef": [
                 api_issue_finder,
@@ -275,7 +278,10 @@ class Linter:
             new_source, applied = apply_edits(source, edits)
             if applied:
                 file.write_text(new_source, encoding="utf-8")
-            result.fixed_count += applied
+            result.fixed_count += sum(
+                all(edit in applied for edit in issue.fix.edits)  # type: ignore[union-attr]
+                for issue in issues
+            )
         return result
 
     def is_ignored(self, issue: Issue, file: Path) -> bool:
@@ -318,6 +324,6 @@ class Linter:
         )
         if file in self.context.project.setting_module_paths:
             yield from setting_module_finder.check(tree)
-        finder = PythonIssueFinder(self.context, self.setting_checker, source)
+        finder = PythonIssueFinder(self.context, self.setting_checker, source, tree)
         finder.visit(tree)
         yield from finder.issues
