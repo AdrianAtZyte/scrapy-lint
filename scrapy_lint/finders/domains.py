@@ -1,4 +1,5 @@
 import ast
+import re
 from ast import (
     AST,
     AnnAssign,
@@ -19,10 +20,13 @@ from scrapy_lint.fixes import Edit, Fix
 from scrapy_lint.issues import (
     DISALLOWED_DOMAIN,
     NO_ALLOWED_DOMAINS,
+    PORT_IN_ALLOWED_DOMAINS,
     URL_IN_ALLOWED_DOMAINS,
     Issue,
     Pos,
 )
+
+HOST_PORT = re.compile(r"(?P<host>[^:/]+):\d+")
 
 SPIDER_BASES = frozenset(
     {
@@ -127,22 +131,24 @@ class UrlInAllowedDomainsIssueFinder:
         for elt in node.value.elts:
             if not (isinstance(elt, Constant) and isinstance(elt.value, str)):
                 continue
-            if not self.is_url(elt.value):
-                continue
             pos = Pos(elt.lineno, elt.col_offset)
-            yield Issue(URL_IN_ALLOWED_DOMAINS, pos, fix=self.build_fix(elt, elt.value))
+            port = HOST_PORT.fullmatch(elt.value)
+            if port:
+                fix = self.build_fix(elt, port["host"], "remove the port")
+                yield Issue(PORT_IN_ALLOWED_DOMAINS, pos, fix=fix)
+            elif self.is_url(elt.value):
+                host = urlparse(elt.value).hostname
+                fix = self.build_fix(elt, host, "replace URL with its domain")
+                yield Issue(URL_IN_ALLOWED_DOMAINS, pos, fix=fix)
 
-    def build_fix(self, elt: Constant, url: str) -> Fix | None:
-        """Build a fix that replaces a URL literal with its bare domain.
+    def build_fix(self, elt: Constant, host: str | None, message: str) -> Fix | None:
+        """Build a fix that replaces a string literal with *host*.
 
         Returns ``None`` (report only, no fix) when the rewrite cannot be made
-        safely: no parseable host, a non-plain string literal (prefix or
-        triple-quote), or a quote character that appears inside the host.
+        safely: no *host*, a non-plain string literal (prefix or triple-quote),
+        or a quote character that appears inside *host*.
         """
-        if self.source is None:
-            return None
-        host = urlparse(url).hostname
-        if not host:
+        if self.source is None or not host:
             return None
         segment = ast.get_source_segment(self.source, elt)
         if not segment or segment[0] not in {'"', "'"} or segment[-1] != segment[0]:
@@ -157,7 +163,7 @@ class UrlInAllowedDomainsIssueFinder:
             end=Pos(elt.end_lineno, elt.end_col_offset),
             replacement=f"{quote}{host}{quote}",
         )
-        return Fix([edit], message="replace URL with its domain")
+        return Fix([edit], message=message)
 
     def is_url(self, domain):
         # when it's just a domain (as 'toscrape.com'), the parsed URL contains
