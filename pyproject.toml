@@ -104,6 +104,7 @@ per-file-ignores = [
     "scrapy_lint/apis.py:too-many-instance-attributes",
     "scrapy_lint/settings.py:too-many-instance-attributes",
     "tests/**:duplicate-code",
+    "tests/test_fix.py:too-many-lines",
     "tests/test_setting_requirements.py:too-many-lines",
 ]
 

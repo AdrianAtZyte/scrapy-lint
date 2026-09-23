@@ -2,7 +2,19 @@ from __future__ import annotations
 
 import json
 import re
-from ast import Attribute, Call, Constant, Dict, Lambda, List, Name, Set, Tuple, expr
+from ast import (
+    Attribute,
+    Call,
+    Constant,
+    Dict,
+    Lambda,
+    List,
+    Name,
+    Set,
+    Tuple,
+    expr,
+    get_source_segment,
+)
 from collections.abc import Generator, Iterable
 from functools import partial
 from typing import TYPE_CHECKING, Protocol
@@ -13,12 +25,14 @@ from packaging.version import Version
 from scrapy_lint.ast import is_dict, iter_dict
 from scrapy_lint.data.addons import ADDONS
 from scrapy_lint.data.settings import SETTINGS
+from scrapy_lint.fixes import Edit, Fix, source_range
 from scrapy_lint.issues import (
     INVALID_SETTING_VALUE,
     MISSING_COMPONENT_REQUIREMENT,
     UNIMPORTABLE_COMPONENT,
     UNNEEDED_IMPORT_PATH,
     UNNEEDED_PATH_STRING,
+    UNSORTED_PRIORITY_DICT,
     UNSUPPORTED_CLASS_OBJECT,
     UNSUPPORTED_PATH_OBJECT,
     Issue,
@@ -319,6 +333,7 @@ class TypeChecker(Protocol):  # pylint: disable=too-few-public-methods
         *,
         setting: Setting,
         project: Project,
+        source: str | None,
     ) -> Generator[Issue]: ...
 
 
@@ -340,17 +355,82 @@ def check_import_path(node: Constant, project: Project) -> Generator[Issue]:
     yield from check_component_path(node, project)
 
 
+def priority_sort_key(priority: int | None) -> tuple[bool, int]:
+    """Return the sort key of a component priority dict entry with the given
+    *priority*.
+
+    ``None`` disables a component, so it has no priority to sort by and goes
+    first.
+    """
+    return (priority is not None, priority or 0)
+
+
+def entry_span(key: expr, value: expr) -> tuple[Pos, Pos]:
+    assert value.end_lineno is not None
+    assert value.end_col_offset is not None
+    return Pos.from_node(key), Pos(value.end_lineno, value.end_col_offset)
+
+
+def build_sort_fix(
+    node: Call | Dict,
+    entries: list[tuple[expr, expr]],
+    order: list[int],
+    source: str | None,
+) -> Fix | None:
+    """Build a fix that rewrites the entries of *node* in *order*, keeping the
+    separators between them, and hence the original layout, untouched.
+
+    Returns ``None`` (report only, no fix) if the dict contains a comment, which
+    would stay in place while the entry it documents moves elsewhere.
+    """
+    if source is None:
+        return None
+    segment = get_source_segment(source, node)
+    if segment is None or "#" in segment:
+        return None
+    spans = [entry_span(key, value) for key, value in entries]
+    parts = [source_range(source, *spans[order[0]])]
+    for position, index in enumerate(order[1:], start=1):
+        parts.append(source_range(source, spans[position - 1][1], spans[position][0]))
+        parts.append(source_range(source, *spans[index]))
+    edit = Edit(start=spans[0][0], end=spans[-1][1], replacement="".join(parts))
+    return Fix([edit], message="sort entries by priority")
+
+
+def check_prio_order(node: Call | Dict, source: str | None) -> Generator[Issue]:
+    entries: list[tuple[expr, expr]] = []
+    priorities: list[int | None] = []
+    for key, value in iter_dict(node):
+        if not isinstance(value, Constant):
+            return
+        priority = value.value
+        if priority is not None and not isinstance(priority, int):
+            return
+        entries.append((key, value))
+        priorities.append(priority)
+    order = sorted(
+        range(len(entries)),
+        key=lambda index: priority_sort_key(priorities[index]),
+    )
+    if order == list(range(len(entries))):
+        return
+    fix = build_sort_fix(node, entries, order, source)
+    yield Issue(UNSORTED_PRIORITY_DICT, Pos.from_node(node), fix=fix)
+
+
 def check_based_comp_prio(
     node: expr,
     *,
     setting: Setting,
     project: Project,
+    source: str | None,
     **_,
 ) -> Generator[Issue]:
     yield from check_getwithbase_compatible(node)
     if not is_dict(node):
         return
     assert isinstance(node, (Call, Dict))
+    yield from check_prio_order(node, source)
     for key, value in iter_dict(node):
         if isinstance(key, Constant):
             if not isinstance(key.value, str):
@@ -408,11 +488,17 @@ def check_based_obj_dict(node: expr, *, project: Project, **_) -> Generator[Issu
             yield from check_class_obj_support(value, project)
 
 
-def check_comp_prio(node: expr, project: Project, **_) -> Generator[Issue]:
+def check_comp_prio(
+    node: expr,
+    project: Project,
+    source: str | None,
+    **_,
+) -> Generator[Issue]:
     yield from check_getdict_compatible(node)
     if not is_dict(node):
         return
     assert isinstance(node, (Call, Dict))
+    yield from check_prio_order(node, source)
     for key, value in iter_dict(node):
         if isinstance(key, Constant):
             component = key.value
