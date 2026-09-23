@@ -72,6 +72,12 @@ CASES = (
         + "\n",
         2,
     ),
+    # Only the port is dropped from a domain that carries one.
+    (
+        'allowed_domains = ["toscrape.com:8080", "127.0.0.1:8080"]\n',
+        'allowed_domains = ["toscrape.com", "127.0.0.1"]\n',
+        2,
+    ),
     # A flagged value without a usable host is reported but left untouched.
     (
         'allowed_domains = ["mailto:hi@toscrape.com"]\n',
@@ -420,6 +426,137 @@ CASES = (
         "class MySpider(Spider):\n    start_url = URL\n",
         0,
     ),
+    # SCP78: the call is rewritten and the import added after the last import.
+    (
+        cleandoc(
+            """
+            from urllib.parse import urlparse
+
+            import scrapy
+
+
+            class MySpider(scrapy.Spider):
+                def parse(self, response):
+                    yield {"netloc": urlparse(response.url).netloc}
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            from urllib.parse import urlparse
+
+            import scrapy
+            from scrapy.utils.httpobj import urlparse_cached
+
+
+            class MySpider(scrapy.Spider):
+                def parse(self, response):
+                    yield {"netloc": urlparse_cached(response).netloc}
+            """,
+        )
+        + "\n",
+        1,
+    ),
+    # Several calls in the same file share a single import insertion.
+    (
+        cleandoc(
+            """
+            from urllib.parse import urlparse
+
+
+            def parse(request, response):
+                return urlparse(request.url), urlparse(response.url)
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            from urllib.parse import urlparse
+            from scrapy.utils.httpobj import urlparse_cached
+
+
+            def parse(request, response):
+                return urlparse_cached(request), urlparse_cached(response)
+            """,
+        )
+        + "\n",
+        2,
+    ),
+    # An existing import is reused.
+    (
+        cleandoc(
+            """
+            from urllib.parse import urlparse
+
+            from scrapy.utils.httpobj import urlparse_cached
+
+
+            def parse(request, response):
+                return urlparse(response.url), urlparse_cached(request)
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            from urllib.parse import urlparse
+
+            from scrapy.utils.httpobj import urlparse_cached
+
+
+            def parse(request, response):
+                return urlparse_cached(response), urlparse_cached(request)
+            """,
+        )
+        + "\n",
+        1,
+    ),
+    # Without a top-level import to add the new one after, the call is reported
+    # but left untouched.
+    (
+        cleandoc(
+            """
+            def parse(response):
+                from urllib.parse import urlparse
+
+                return urlparse(response.url)
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            def parse(response):
+                from urllib.parse import urlparse
+
+                return urlparse(response.url)
+            """,
+        )
+        + "\n",
+        0,
+    ),
+    # Neither is it fixed when the last import leaves no line to insert into.
+    (
+        cleandoc(
+            """
+            def parse(response):
+                return urlparse(response.url)
+
+
+            from urllib.parse import urlparse
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            def parse(response):
+                return urlparse(response.url)
+
+
+            from urllib.parse import urlparse
+            """,
+        )
+        + "\n",
+        0,
+    ),
     # SCP70: module-level and root loggers become self.logger.
     (
         cleandoc(
@@ -624,11 +761,12 @@ IMPORT_CASES = (
         "from w3lib.url import canonicalize_url\n",
         1,
     ),
-    # Every name of the statement moves to the same module in one edit.
+    # Every name of the statement moves to the same module in one edit, but
+    # each deprecated name is still its own fixed issue.
     (
         "from scrapy.utils.url import canonicalize_url, is_url\n",
         "from w3lib.url import canonicalize_url, is_url\n",
-        1,
+        2,
     ),
     # An alias does not change the name of the imported object.
     (
@@ -680,19 +818,19 @@ def spider_method(call: str) -> str:
     return f"class MySpider(Spider):\n    def parse(self, response):\n{body}"
 
 
-# (source, expected output, number of edits applied) for Spider.log() calls,
+# (source, expected output, number of issues fixed) for Spider.log() calls,
 # which become calls to the Spider.logger method of their level.
 LOG_CASES = (
     ('self.log("a")', 'self.logger.debug("a")', 1),
     ('self.log(f"{response.url}")', 'self.logger.debug(f"{response.url}")', 1),
-    ('self.log("a", level=logging.INFO)', 'self.logger.info("a")', 2),
-    ('self.log("a", logging.WARNING)', 'self.logger.warning("a")', 2),
-    ('self.log("a", level=WARN)', 'self.logger.warning("a")', 2),
-    ('self.log("a", level=40)', 'self.logger.error("a")', 2),
+    ('self.log("a", level=logging.INFO)', 'self.logger.info("a")', 1),
+    ('self.log("a", logging.WARNING)', 'self.logger.warning("a")', 1),
+    ('self.log("a", level=WARN)', 'self.logger.warning("a")', 1),
+    ('self.log("a", level=40)', 'self.logger.error("a")', 1),
     (
         'self.log("a", level=logging.CRITICAL, extra={"b": 1})',
         'self.logger.critical("a", extra={"b": 1})',
-        2,
+        1,
     ),
     (
         cleandoc(
@@ -710,7 +848,7 @@ LOG_CASES = (
             )
             """,
         ),
-        2,
+        1,
     ),
     # Levels that are not a standard one, and arguments that cannot be told
     # apart, are left alone.
@@ -746,7 +884,7 @@ def test_fix_spider_log(source: str, expected: str, fixed: int):
 
 def test_apply_edits_empty():
     source = "allowed_domains = []\n"
-    assert apply_edits(source, []) == (source, 0)
+    assert apply_edits(source, []) == (source, [])
 
 
 def test_apply_edits_skips_overlap():
@@ -757,7 +895,7 @@ def test_apply_edits_skips_overlap():
         Edit(start=Pos(1, 2), end=Pos(1, 6), replacement="Y"),
     ]
     new_source, applied = apply_edits(source, edits)
-    assert applied == 1
+    assert applied == [edits[1]]
     assert new_source == "abY\n"
 
 
@@ -769,6 +907,14 @@ def test_build_sort_fix_without_source():
     assert build_sort_fix(node, list(iter_dict(node)), [1, 0], None) is None
 
 
+def test_apply_edits_skips_repeats():
+    source = "abcdef\n"
+    insert = Edit(start=Pos(1, 0), end=Pos(1, 0), replacement="X")
+    new_source, applied = apply_edits(source, [insert, insert])
+    assert applied == [insert]
+    assert new_source == "Xabcdef\n"
+
+
 def test_build_fix_without_source():
     finder = UrlInAllowedDomainsIssueFinder()
     stmt = ast.parse('"https://toscrape.com/"').body[0]
@@ -776,7 +922,7 @@ def test_build_fix_without_source():
     elt = stmt.value
     assert isinstance(elt, ast.Constant)
     assert isinstance(elt.value, str)
-    assert finder.build_fix(elt, elt.value) is None
+    assert finder.build_fix(elt, "toscrape.com", "replace URL with its domain") is None
 
 
 def test_build_start_fix_without_source():
