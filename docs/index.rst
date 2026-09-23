@@ -23,4 +23,5 @@ details.
 
     rules/index
     options
+    ignore-comments
     changes
