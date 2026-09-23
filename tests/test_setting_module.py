@@ -478,12 +478,19 @@ CASES: Cases = (
                 (code, NO_ISSUE)
                 for code in (
                     "ZYTE_API_SESSION_POOL_SIZE = 8",
-                    "ZYTE_API_SESSION_ENABLED = False\nZYTE_API_SESSION_POOL_SIZE = 8",
                     (
                         "ZYTE_API_SESSION_ENABLED = enabled\n"
                         "ZYTE_API_SESSION_POOL_SIZE = 8"
                     ),
                 )
+            ),
+            (
+                "ZYTE_API_SESSION_ENABLED = False\nZYTE_API_SESSION_POOL_SIZE = 8",
+                ExpectedIssue(
+                    "SCP17 redundant setting value",
+                    column=27,
+                    path=PATH,
+                ),
             ),
             (
                 "settings['SPIDER_MODULES'] = ['myproject.spiders']",

@@ -16,7 +16,7 @@ FREEZE_ISSUE = ExpectedIssue(
 
 def issue(detail: str, path: str = SETTINGS_PATH, **kwargs) -> ExpectedIssue:
     return ExpectedIssue(
-        f"SCP78 inconsistent Zyte API params: {detail}",
+        f"SCP79 inconsistent Zyte API params: {detail}",
         path=path,
         **kwargs,
     )

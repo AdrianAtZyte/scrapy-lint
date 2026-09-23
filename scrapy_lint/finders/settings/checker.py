@@ -117,6 +117,7 @@ class SettingChecker:
         self.additional_known_settings = set(context.options.get("known-settings", []))
         self.in_update_pre_crawler_settings = False
         self.in_update_settings = False
+        self.source: str | None = None
 
     def is_known_setting(self, name: str) -> bool:
         return name in SETTINGS or name in self.additional_known_settings
@@ -394,11 +395,14 @@ class SettingChecker:
         # A value that is not even a valid credential is not a leaked one.
         if setting.is_secret and not invalid:
             yield from check_secret(node, setting=setting, project=self.project)
-        if setting.type is not None and not is_allowed_none(
-            node, setting, self.project
+        if (
+            not invalid
+            and setting.type is not None
+            and not is_allowed_none(node, setting, self.project)
         ):
             yield from TYPE_CHECKERS[setting.type](
                 node,
                 setting=setting,
                 project=self.project,
+                source=self.source,
             )

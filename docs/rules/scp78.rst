@@ -1,33 +1,24 @@
 .. _scp78:
 
-===================================
-SCP78: Inconsistent Zyte API params
-===================================
+========================
+SCP78: Uncached urlparse
+========================
 
 What it does
 ============
 
-When using :doc:`scrapy-zyte-api <scrapy-zyte-api:index>` together with
-:doc:`scrapy-poet <scrapy-poet:index>`, reports a Zyte API param that
-:setting:`ZYTE_API_AUTOMAP_PARAMS` and :setting:`ZYTE_API_PROVIDER_PARAMS` do
-not set to the same value.
-
-Only params meant to apply to every request are taken into account:
-``geolocation`` and ``ipType``.
-
-The settings of a spider, i.e. :attr:`~scrapy.Spider.custom_settings`, are
-checked on top of those of the settings module.
+Finds usage of :func:`~urllib.parse.urlparse` on the URL of a request or a
+response that can be replaced with
+:func:`~scrapy.utils.httpobj.urlparse_cached`.
 
 
 Why is this bad?
 ================
 
-Each setting only reaches part of the requests of a spider:
-:setting:`ZYTE_API_PROVIDER_PARAMS` reaches the requests that scrapy-poet
-providers send, and :setting:`ZYTE_API_AUTOMAP_PARAMS` reaches the rest. A
-param that only one of them sets silently does not apply to the requests that
-the other covers, so a spider that looks like it uses a single geolocation
-actually uses 2.
+:func:`~scrapy.utils.httpobj.urlparse_cached` caches its result on the request
+or response object, so parsing the same URL again, in your code or in Scrapy
+itself, costs nothing. Scrapy parses the URL of every request it sends, so for
+requests the cache is usually warm already.
 
 
 Example
@@ -35,11 +26,34 @@ Example
 
 .. code-block:: python
 
-    ZYTE_API_AUTOMAP_PARAMS = {"geolocation": "US"}
+    import scrapy
+    from urllib.parse import urlparse
+
+
+    class MySpider(scrapy.Spider):
+        name = "myspider"
+
+        def parse(self, response):
+            yield {"hostname": urlparse(response.url).hostname}
 
 Use instead:
 
 .. code-block:: python
 
-    ZYTE_API_AUTOMAP_PARAMS = {"geolocation": "US"}
-    ZYTE_API_PROVIDER_PARAMS = {"geolocation": "US"}
+    import scrapy
+    from scrapy.utils.httpobj import urlparse_cached
+
+
+    class MySpider(scrapy.Spider):
+        name = "myspider"
+
+        def parse(self, response):
+            yield {"hostname": urlparse_cached(response).hostname}
+
+
+Fix
+===
+
+This rule is automatically fixable with the ``--fix`` command-line option: the
+call is replaced and :func:`~scrapy.utils.httpobj.urlparse_cached` is imported.
+An :func:`~urllib.parse.urlparse` import that the fix leaves unused is kept.
