@@ -83,6 +83,7 @@ CASES: Cases = (
                         ("DOWNLOAD_SLOTS", "{a: {b: c}}"),
                         ("DOWNLOAD_SLOTS", '{"toscrape.com": {"concurrency": 1}}'),
                         ("DOWNLOAD_SLOTS", '{"toscrape.com": {"delay": 0.0}}'),
+                        ("DOWNLOAD_SLOTS", '{"toscrape.com": {"jitter": 0.5}}'),
                         (
                             "DOWNLOAD_SLOTS",
                             '{"toscrape.com": {"randomize_delay": True}}',
@@ -104,6 +105,15 @@ CASES: Cases = (
                         ("DOWNLOADER_MIDDLEWARES", "{a: b}"),
                         ("DOWNLOADER_MIDDLEWARES", "{Foo: 100}"),
                         ("DOWNLOADER_MIDDLEWARES", "{'foo.Foo': 100}"),
+                        # SCP60 unsorted priority dict (sorted values)
+                        ("DOWNLOADER_MIDDLEWARES", "{Foo: 100, Bar: 200}"),
+                        # Disabled components have no priority to sort by.
+                        ("DOWNLOADER_MIDDLEWARES", "{Foo: None, Bar: 100}"),
+                        # Entries with the same priority can come in any order.
+                        ("DOWNLOADER_MIDDLEWARES", "{Foo: 200, Bar: 200}"),
+                        # Priorities that are not literals cannot be sorted.
+                        ("DOWNLOADER_MIDDLEWARES", "{Foo: 200, Bar: prio}"),
+                        ("DOWNLOADER_MIDDLEWARES", "{**BASE, Foo: 100}"),
                         ("FEED_EXPORT_FIELDS", "foo"),
                         ("FEED_EXPORT_FIELDS", "foo()"),
                         ("FEED_EXPORT_FIELDS", '"foo"'),
@@ -161,6 +171,13 @@ CASES: Cases = (
                         ("FEEDS", "{}"),
                         ("FEEDS", "{a: b}"),
                         ("FEEDS", "{a: {b: c}}"),
+                        ("FEEDS", '{"ftp://user:p%40ss@example.com:21/f.json": {}}'),
+                        ("FEEDS", '{"ftp://[::1]:21/f.json": {}}'),
+                        # A URI param can also stand for the port.
+                        ("FEEDS", '{"ftp://example.com:%(port)s/f.json": {}}'),
+                        # Outside the authority, "@" is part of the path.
+                        ("FEEDS", '{"s3://bucket/jane.doe@example.com.csv": {}}'),
+                        ("FEED_URI", '"ftp://user:p%40ss@example.com/f.json"'),
                         ("JOBDIR", "foo"),
                         ("JOBDIR", "foo()"),
                         ("JOBDIR", '"/tmp/foo"'),
@@ -220,6 +237,9 @@ CASES: Cases = (
                         ("SPIDER_CONTRACTS", '"{}"'),
                         ("SPIDER_CONTRACTS", "{}"),
                         ("SPIDER_CONTRACTS", "None"),
+                        ("ZYTE_API_KEY", "foo"),
+                        ("ZYTE_API_KEY", "foo()"),
+                        ("ZYTE_API_KEY", 'os.environ["ZYTE_API_KEY"]'),
                         # Unknown setting type
                         ("SERVICE_ROOT", "foo"),
                         ("SERVICE_ROOT", "foo()"),
@@ -326,6 +346,13 @@ CASES: Cases = (
                             for setting, value, column in (
                                 ("FEEDS", "{1: {}}", 1),
                                 ("FEEDS", "{None: {}}", 1),
+                            )
+                        ),
+                        *(
+                            ("SCP60 unsorted priority dict", setting, value, 0)
+                            for setting, value in (
+                                ("DOWNLOADER_MIDDLEWARES", "{Foo: 200, Bar: 100}"),
+                                ("DOWNLOADER_MIDDLEWARES", "{Foo: 100, Bar: None}"),
                             )
                         ),
                         *(
@@ -476,6 +503,12 @@ CASES: Cases = (
                                 ),
                                 (
                                     "DOWNLOAD_SLOTS",
+                                    '{"toscrape.com": {"jitter": -1}}',
+                                    28,
+                                    "jitter must be >= 0",
+                                ),
+                                (
+                                    "DOWNLOAD_SLOTS",
                                     '{"toscrape.com": {"randomize_delay": 1}}',
                                     37,
                                     "randomize_delay must be a boolean",
@@ -521,6 +554,23 @@ CASES: Cases = (
                                     '"not_a_dict"',
                                     0,
                                     "invalid JSON: Expecting value: line 1 column 1 (char 0)",
+                                ),
+                                *(
+                                    (
+                                        "FEEDS",
+                                        f'{{"{uri}": {{}}}}',
+                                        1,
+                                        (
+                                            "invalid URI, e.g. credentials not "
+                                            "percent-encoded"
+                                        ),
+                                    )
+                                    for uri in (
+                                        "ftp://user:pa/ss@example.com/f.json",
+                                        "ftp://user:pa?ss@example.com/f.json",
+                                        "ftp://user:pa#ss@example.com/f.json",
+                                        "s3://key:sec/ret@bucket/f.csv",
+                                    )
                                 ),
                                 *(
                                     (
@@ -711,6 +761,12 @@ CASES: Cases = (
                                     ),
                                 ),
                                 (
+                                    "FEED_URI",
+                                    '"ftp://user:pa/ss@example.com/f.json"',
+                                    0,
+                                    "invalid URI, e.g. credentials not percent-encoded",
+                                ),
+                                (
                                     "PERIODIC_LOG_DELTA",
                                     "False",
                                     0,
@@ -758,6 +814,18 @@ CASES: Cases = (
                                     13,
                                     "include/exclude list items must be strings",
                                 ),
+                                *(
+                                    ("ZYTE_API_KEY", value, 0, "must be a Zyte API key")
+                                    for value in (
+                                        "''",
+                                        "'YOUR_API_KEY'",
+                                        "'0123456789abcdef0123456789abcde'",
+                                        "'0123456789abcdef0123456789abcdefa'",
+                                        "'0123456789abcdef0123456789abcdeg'",
+                                        "None",
+                                        "123",
+                                    )
+                                ),
                             )
                         ),
                         *(
@@ -803,6 +871,10 @@ CASES: Cases = (
                                 ("FTP_PASSWORD", "'hunter2'"),
                                 ("MAIL_PASS", "'hunter2'"),
                                 ("TELNETCONSOLE_PASSWORD", "'hunter2'"),
+                                (
+                                    "ZYTE_API_KEY",
+                                    "'0123456789abcdef0123456789abcdef'",
+                                ),
                             )
                         ),
                         # SCP42 unneeded path string

@@ -23,7 +23,7 @@ class MySpider(scrapy.Spider):
         pass
 """
 ISSUE = ExpectedIssue(
-    message="SCP60 hidden callback type hint: Response",
+    message="SCP61 hidden callback type hint: Response",
     line=14,
     column=30,
     path=PATH,
@@ -84,7 +84,7 @@ CASES: Cases = (
                 (
                     ISSUE,
                     ISSUE.replace(
-                        message="SCP60 hidden callback type hint: TextResponse",
+                        message="SCP61 hidden callback type hint: TextResponse",
                         column=41,
                     ),
                 ),

@@ -46,3 +46,11 @@ Use instead:
     from scrapy.exporters import PythonItemExporter
 
     exporter = PythonItemExporter(binary=False)
+
+
+Fix
+===
+
+This rule is automatically fixable with the ``--fix`` command-line option for
+calls to ``Spider.log()``, which become calls to the ``Spider.logger`` method
+of their logging level, e.g. ``self.logger.info()`` for ``logging.INFO``.
