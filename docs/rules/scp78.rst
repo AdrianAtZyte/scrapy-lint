@@ -1,29 +1,24 @@
 .. _scp78:
 
-============================
-SCP78: Unused automap params
-============================
+========================
+SCP78: Uncached urlparse
+========================
 
 What it does
 ============
 
-When using :doc:`scrapy-zyte-api <scrapy-zyte-api:index>` together with
-:doc:`scrapy-poet <scrapy-poet:index>`, reports :reqmeta:`zyte_api_automap`
-params on a request whose callback, defined in the same module, type-hints a
-parameter as :class:`~scrapy_poet.DummyResponse`.
+Finds usage of :func:`~urllib.parse.urlparse` on the URL of a request or a
+response that can be replaced with
+:func:`~scrapy.utils.httpobj.urlparse_cached`.
 
 
 Why is this bad?
 ================
 
-:class:`~scrapy_poet.DummyResponse` tells scrapy-poet that the callback does
-not use the response, so scrapy-poet skips the download and the params are
-never sent to Zyte API. The page objects that the callback does use are
-fetched by the scrapy-poet provider, which reads :reqmeta:`zyte_api_provider`.
-
-The params look like they apply, but they do not. A ``geolocation`` meant to
-determine which version of a website to scrape is silently ignored, and the
-data you get back is not the data you asked for.
+:func:`~scrapy.utils.httpobj.urlparse_cached` caches its result on the request
+or response object, so parsing the same URL again, in your code or in Scrapy
+itself, costs nothing. Scrapy parses the URL of every request it sends, so for
+requests the cache is usually warm already.
 
 
 Example
@@ -31,33 +26,34 @@ Example
 
 .. code-block:: python
 
-    class MySpider(Spider):
-        async def start(self):
-            yield Request(
-                "https://toscrape.com/",
-                self.parse_product,
-                meta={"zyte_api_automap": {"geolocation": "ie"}},
-            )
+    import scrapy
+    from urllib.parse import urlparse
 
-        def parse_product(self, response: DummyResponse, product: Product):
-            yield product
 
-Use :reqmeta:`zyte_api_provider`:
+    class MySpider(scrapy.Spider):
+        name = "myspider"
+
+        def parse(self, response):
+            yield {"hostname": urlparse(response.url).hostname}
+
+Use instead:
 
 .. code-block:: python
 
-    yield Request(
-        "https://toscrape.com/",
-        self.parse_product,
-        meta={"zyte_api_provider": {"geolocation": "ie"}},
-    )
+    import scrapy
+    from scrapy.utils.httpobj import urlparse_cached
 
 
-Known limitations
-=================
+    class MySpider(scrapy.Spider):
+        name = "myspider"
 
-A page object can declare :class:`~web_poet.page_inputs.http.HttpResponse` as
-a dependency, in which case scrapy-poet does download the response and the
-automap params do apply. Finding that out means following imports across
-files, which this rule does not do, so mark the file with
-:ref:`per-file-ignores` if you hit it.
+        def parse(self, response):
+            yield {"hostname": urlparse_cached(response).hostname}
+
+
+Fix
+===
+
+This rule is automatically fixable with the ``--fix`` command-line option: the
+call is replaced and :func:`~scrapy.utils.httpobj.urlparse_cached` is imported.
+An :func:`~urllib.parse.urlparse` import that the fix leaves unused is kept.

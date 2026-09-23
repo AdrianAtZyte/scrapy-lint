@@ -68,8 +68,8 @@ def test(
     check_project(files, expected, options)
 
 
-UNUSED_AUTOMAP_PARAMS = "SCP78 unused automap params"
-MISSING_PROVIDER_PARAMS = "SCP79 missing provider params"
+UNUSED_AUTOMAP_PARAMS = "SCP83 unused automap params"
+MISSING_PROVIDER_PARAMS = "SCP84 missing provider params"
 AUTOMAP = 'meta={"zyte_api_automap": {"geolocation": "ie"}}'
 
 
@@ -94,7 +94,7 @@ CALLBACK_CASES: Cases = tuple(
         {},
     )
     for source, message in (
-        # SCP78: the callback discards the response, so scrapy-poet skips the
+        # SCP83: the callback discards the response, so scrapy-poet skips the
         # download and the params never reach Zyte API.
         (
             f"""\
@@ -168,7 +168,7 @@ Request(url, callback=parse_page, {AUTOMAP})
 """,
             UNUSED_AUTOMAP_PARAMS,
         ),
-        # SCP79: the response is used, but the page objects are fetched through
+        # SCP84: the response is used, but the page objects are fetched through
         # the provider, which ignores automap params.
         (
             f"""\

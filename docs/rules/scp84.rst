@@ -1,7 +1,7 @@
-.. _scp79:
+.. _scp84:
 
 ==============================
-SCP79: Missing provider params
+SCP84: Missing provider params
 ==============================
 
 What it does
