@@ -102,6 +102,38 @@ CASES = (
         "allowed_domains = ['http://ex\\'ample.com/']\n",
         0,
     ),
+    # SCP06: extract_first() becomes get(), keeping any arguments.
+    (
+        'response.css("a").extract_first(default="")\n',
+        'response.css("a").get(default="")\n',
+        1,
+    ),
+    # SCP68: extract() becomes getall().
+    (
+        'response.css("a").extract()\n',
+        'response.css("a").getall()\n',
+        1,
+    ),
+    # The call may span several lines.
+    (
+        cleandoc(
+            """
+            values = response.css(
+                "a",
+            ).extract()
+            """,
+        )
+        + "\n",
+        cleandoc(
+            """
+            values = response.css(
+                "a",
+            ).getall()
+            """,
+        )
+        + "\n",
+        1,
+    ),
     # SCP60: entries are sorted by priority, and the layout is kept.
     (
         'settings["DOWNLOADER_MIDDLEWARES"] = {"a.B": 200, "c.D": 100}\n',

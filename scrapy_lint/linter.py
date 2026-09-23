@@ -28,9 +28,10 @@ from .finders.items import DocumentationCommentIssueFinder
 from .finders.loggers import SpiderLoggerIssueFinder
 from .finders.methods import DeprecatedArgumentIssueFinder
 from .finders.oldstyle import (
+    ExtractIssueFinder,
     OldSelectorIssueFinder,
     UrlparseIssueFinder,
-    find_extract_then_index_issues,
+    find_absolute_nested_xpath_issues,
     find_get_first_by_index_issues,
     find_url_join_issues,
 )
@@ -106,6 +107,7 @@ class PythonIssueFinder(NodeVisitor):
         domain_issue_finder = UnreachableDomainIssueFinder()
         lambda_callback_issue_finder = LambdaCallbackIssueFinder()
         setting_issue_finder = SettingIssueFinder(setting_checker)
+        extract_issue_finder = ExtractIssueFinder()
         spider_logger_issue_finder = SpiderLoggerIssueFinder()
         import_issue_finder = ImportIssueFinder(setting_checker.project, source)
 
@@ -122,6 +124,8 @@ class PythonIssueFinder(NodeVisitor):
                 setting_issue_finder,
             ],
             "Call": [
+                extract_issue_finder,
+                find_absolute_nested_xpath_issues,
                 find_get_first_by_index_issues,
                 lambda_callback_issue_finder,
                 api_issue_finder,
@@ -154,7 +158,7 @@ class PythonIssueFinder(NodeVisitor):
                 import_issue_finder,
             ],
             "Subscript": [
-                find_extract_then_index_issues,
+                extract_issue_finder,
                 setting_issue_finder,
             ],
         }
