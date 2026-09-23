@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from inspect import cleandoc
 
-from . import NO_ISSUE, Cases, ExpectedIssue, File, cases
+from . import Cases, ExpectedIssue, File, cases
 from .helpers import check_project
 
 CASES: Cases = (
@@ -49,6 +49,34 @@ CASES: Cases = (
         ),
         {},
     ),
+    (
+        (
+            File(
+                cleandoc(
+                    """
+                    class MySpider(Spider):
+                        allowed_domains = ['toscrape.com:8080', '127.0.0.1:8080']
+                    """
+                ),
+                path="a.py",
+            ),
+        ),
+        (
+            ExpectedIssue(
+                message="SCP02 port in allowed_domains",
+                line=2,
+                column=23,
+                path="a.py",
+            ),
+            ExpectedIssue(
+                message="SCP02 port in allowed_domains",
+                line=2,
+                column=44,
+                path="a.py",
+            ),
+        ),
+        {},
+    ),
     # The allowed_domains from a given class should not affect other classes.
     (
         (
@@ -68,7 +96,47 @@ CASES: Cases = (
                 path="a.py",
             ),
         ),
-        NO_ISSUE,
+        ExpectedIssue(
+            message="SCP57 no allowed_domains",
+            line=1,
+            column=6,
+            path="a.py",
+        ),
+        {},
+    ),
+    # SCP57
+    (
+        (
+            File(
+                cleandoc(
+                    """
+                    class AnnotatedSpider(scrapy.spiders.CrawlSpider):
+                        allowed_domains: list[str] = ['a.example']
+                        start_urls: list[str] = ['https://a.example/']
+
+                    class NotASpider:
+                        start_urls = ['https://a.example/']
+
+                    class CustomSpider(MyBaseSpider):
+                        start_urls = ['https://a.example/']
+
+                    class LateSpider(scrapy.Spider):
+                        start_urls = ['https://a.example/']
+
+                        def __init__(self, *args, **kwargs):
+                            super().__init__(*args, **kwargs)
+                            self.allowed_domains = ['a.example']
+                    """
+                ),
+                path="a.py",
+            ),
+        ),
+        ExpectedIssue(
+            message="SCP57 no allowed_domains",
+            line=11,
+            column=6,
+            path="a.py",
+        ),
         {},
     ),
 )
