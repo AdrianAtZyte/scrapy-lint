@@ -77,7 +77,7 @@ CASES: Cases = (
                     """
                     requirements:
                       file: requirements.txt
-                    stack: scrapy:2.12  # scrapy-lint: ignore[SCP20]
+                    stack: scrapy:2.11  # scrapy-lint: ignore[SCP20]
                     """,
                 ),
                 path="scrapinghub.yml",
