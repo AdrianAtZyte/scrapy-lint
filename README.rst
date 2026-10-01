@@ -62,4 +62,4 @@ Documentation
 
 See the documentation_ for more.
 
-.. _documentation: https://scrapy-lint.readthedocs.io/en/latest/
+.. _documentation: https://scrapy-lint.readthedocs.io/en/stable/

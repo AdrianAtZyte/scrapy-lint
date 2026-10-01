@@ -40,7 +40,7 @@ scrapy-lint = "scrapy_lint:main"
 [project.urls]
 Source = "https://github.com/scrapy/scrapy-lint"
 Tracker = "https://github.com/scrapy/scrapy-lint/issues"
-"Release notes" = "https://scrapy-lint.readthedocs.io/en/latest/changes.html"
+"Release notes" = "https://scrapy-lint.readthedocs.io/en/stable/changes.html"
 
 [tool.hatch.build.targets.sdist]
 include = [
