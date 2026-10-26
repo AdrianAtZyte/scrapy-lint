@@ -41,7 +41,7 @@ Use instead:
     aiosignal==1.4.0
     attrs==26.1.0
     automat==25.4.16
-    brotli==1.2.0
+    brotli==1.2.1
     certifi==2026.7.22
     cffi==2.1.1
     charset-normalizer==3.5.1
